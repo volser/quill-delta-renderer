@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { listGrouper } from '../../src/common/transformers/list-grouper';
-import type { Delta } from '../../src/core/ast-types';
-import { DeltaParser } from '../../src/core/parser';
+import type { Delta } from '../../core/ast-types';
+import { DeltaParser } from '../../core/parser';
+import { listGrouper } from './list-grouper';
 
 function parseWithListGrouper(delta: Delta) {
   return new DeltaParser(delta).use(listGrouper).toAST();

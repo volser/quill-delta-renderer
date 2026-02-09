@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Delta, TNode } from '../../src/core/ast-types';
-import { DeltaParser } from '../../src/core/parser';
+import type { Delta, TNode } from './ast-types';
+import { DeltaParser } from './parser';
 
 describe('DeltaParser', () => {
   describe('basic text parsing', () => {

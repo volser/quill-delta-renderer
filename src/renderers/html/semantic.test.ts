@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Delta } from '../../../src/core/ast-types';
-import { DeltaParser } from '../../../src/core/parser';
-import { SemanticHtmlRenderer } from '../../../src/renderers/html/semantic';
+import type { Delta } from '../../core/ast-types';
+import { DeltaParser } from '../../core/parser';
+import { SemanticHtmlRenderer } from './semantic';
 
 function renderDelta(delta: Delta): string {
   const ast = new DeltaParser(delta).toAST();
