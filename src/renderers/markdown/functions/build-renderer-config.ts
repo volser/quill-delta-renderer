@@ -117,6 +117,8 @@ export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRenderer
     markPriorities: DEFAULT_MARK_PRIORITIES,
 
     nodeOverrides: {
+      'line-break': () => '\n',
+
       root: (node, ctx) => renderRoot(node, ctx),
 
       'code-block-container': (node) => renderCodeBlockContainer(node, cfg),

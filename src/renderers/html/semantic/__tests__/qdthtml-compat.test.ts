@@ -11,11 +11,10 @@
  * ┌──────────────────────────────────────────────────────────────────────┐
  * │                   REMAINING KNOWN DIFFERENCES                       │
  * │                                                                     │
- * │  1. Multi-newline inserts                                           │
- * │     Legacy: { insert:'A\nB\n' } → <p>A<br/>B</p> (one <p>)        │
- * │     Semantic: → <p>A</p><p>B</p> (separate paragraphs)             │
- * │     Reason: Our parser treats each \n as a paragraph boundary,      │
- * │     matching the Quill editor's actual DOM structure.               │
+ * │  1. Multi-newline inserts  (resolvable via softLineBreaks: true)     │
+ * │     Default: { insert:'A\nB\n' } → <p>A</p><p>B</p>              │
+ * │     Legacy:  → <p>A<br/>B</p>                                      │
+ * │     Fix: parseQuillDelta(delta, { softLineBreaks: true })           │
  * │                                                                     │
  * │  2. Code block `ql-syntax` class                                    │
  * │     Legacy: <pre>code</pre>  (no class)                            │
@@ -551,21 +550,39 @@ describe('qdthtml compat: complex mixed content', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('qdthtml known differences: multi-newline inserts', () => {
+  // By default, our parser treats each \n as a paragraph boundary,
+  // matching the Quill editor's DOM: <p>A</p><p>B</p>.
   // quill-delta-to-html renders { insert: 'A\nB\n' } as <p>A<br/>B</p>.
-  // Our parser correctly treats each \n as a paragraph boundary,
-  // producing <p>A</p><p>B</p> — matching the Quill editor's DOM.
+  //
+  // Enable `softLineBreaks: true` in parseQuillDelta to match legacy behavior.
 
-  it('multiple paragraphs via single insert', () => {
+  it('default: separate paragraphs per newline', () => {
     const delta: Delta = { ops: [{ insert: 'Line 1\nLine 2\nLine 3\n' }] };
 
     expect(renderSemantic(delta)).toBe('<p>Line 1</p><p>Line 2</p><p>Line 3</p>');
     expect(renderLegacy(delta)).toBe('<p>Line 1<br/>Line 2<br/>Line 3</p>');
   });
 
-  it('multiple empty paragraphs via single insert', () => {
+  it('softLineBreaks: matches legacy with <br/> inside single <p>', () => {
+    const delta: Delta = { ops: [{ insert: 'Line 1\nLine 2\nLine 3\n' }] };
+
+    const ast = parseQuillDelta(delta, { softLineBreaks: true });
+    expect(renderer.render(ast)).toBe('<p>Line 1<br/>Line 2<br/>Line 3</p>');
+    expect(renderLegacy(delta)).toBe('<p>Line 1<br/>Line 2<br/>Line 3</p>');
+  });
+
+  it('default: separate empty paragraphs', () => {
     const delta: Delta = { ops: [{ insert: '\n\n\n' }] };
 
     expect(renderSemantic(delta)).toBe('<p><br/></p><p><br/></p><p><br/></p>');
+    expect(renderLegacy(delta)).toBe('<p><br/><br/></p>');
+  });
+
+  it('softLineBreaks: matches legacy for empty paragraphs', () => {
+    const delta: Delta = { ops: [{ insert: '\n\n\n' }] };
+
+    const ast = parseQuillDelta(delta, { softLineBreaks: true });
+    expect(renderer.render(ast)).toBe('<p><br/><br/></p>');
     expect(renderLegacy(delta)).toBe('<p><br/><br/></p>');
   });
 });

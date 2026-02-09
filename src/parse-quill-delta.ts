@@ -24,6 +24,18 @@ export interface ParseQuillDeltaOptions {
   blockEmbeds?: string[];
 
   /**
+   * When `true`, newlines within a single text insert that would create
+   * plain paragraphs become inline `line-break` nodes instead of paragraph
+   * boundaries.
+   *
+   * This matches `quill-delta-to-html` behavior where `{ insert: 'A\nB\n' }`
+   * produces `<p>A<br/>B</p>` instead of `<p>A</p><p>B</p>`.
+   *
+   * @default false
+   */
+  softLineBreaks?: boolean;
+
+  /**
    * Additional transformers appended after the standard ones
    * (listGrouper, tableGrouper, codeBlockGrouper).
    */
@@ -72,6 +84,7 @@ export function parseQuillDelta(delta: Delta, options?: ParseQuillDeltaOptions):
       ...options?.extraBlockAttributes,
     },
     blockEmbeds: options?.blockEmbeds ?? ['video'],
+    softLineBreaks: options?.softLineBreaks,
   };
 
   const rawAst = parseDelta(delta, config);

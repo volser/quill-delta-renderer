@@ -140,6 +140,8 @@ export function buildRendererConfig(
     markPriorities: DEFAULT_MARK_PRIORITIES,
 
     nodeOverrides: {
+      'line-break': () => createElement('br'),
+
       'code-block-container': (node) => renderCodeBlockContainer(node, cfg),
     },
 

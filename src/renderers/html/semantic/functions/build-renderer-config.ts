@@ -117,6 +117,8 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
     // Renders all child lines into a single <pre> with newline-separated,
     // HTML-escaped content — matching quill-delta-to-html output.
     nodeOverrides: {
+      'line-break': () => '<br/>',
+
       'code-block-container': (node) => {
         const { language, lines } = resolveCodeBlockLines(node);
         const className = buildCodeBlockClassName(language, cfg.classPrefix);

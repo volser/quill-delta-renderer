@@ -137,6 +137,21 @@ export interface ParserConfig {
    * placed inside a paragraph.
    */
   blockEmbeds?: string[];
+  /**
+   * When `true`, newlines within a single text insert that would create
+   * plain paragraphs become inline `line-break` nodes instead of paragraph
+   * boundaries.
+   *
+   * This matches `quill-delta-to-html` behavior where `{ insert: 'A\nB\n' }`
+   * produces `<p>A<br/>B</p>` instead of `<p>A</p><p>B</p>`.
+   *
+   * Only applies to plain paragraphs — newlines that produce blocks with
+   * block-level attributes (header, list, code-block, etc.) always create
+   * separate blocks regardless of this setting.
+   *
+   * @default false
+   */
+  softLineBreaks?: boolean;
 }
 
 // ─── Renderer Types ─────────────────────────────────────────────────────────

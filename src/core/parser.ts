@@ -44,6 +44,7 @@ export function parseDelta(delta: Delta, config: ParserConfig): TNode {
 
   const blockAttributes = config.blockAttributes;
   const blockEmbeds = new Set(config.blockEmbeds ?? []);
+  const softLineBreaks = config.softLineBreaks ?? false;
 
   let state: ParseState = EMPTY_STATE;
 
@@ -51,7 +52,7 @@ export function parseDelta(delta: Delta, config: ParserConfig): TNode {
     if (op.insert === undefined) continue;
 
     if (typeof op.insert === 'string') {
-      state = processTextOp(state, op.insert, op.attributes ?? {}, blockAttributes);
+      state = processTextOp(state, op.insert, op.attributes ?? {}, blockAttributes, softLineBreaks);
     } else {
       state = processEmbedOp(state, op.insert, op.attributes ?? {}, blockEmbeds);
     }
@@ -123,6 +124,7 @@ function processTextOp(
   text: string,
   attrs: Attributes,
   blockAttributes: ParserConfig['blockAttributes'],
+  softLineBreaks: boolean,
 ): ParseState {
   const lines = text.split('\n');
   let { blocks, buffer } = state;
@@ -137,12 +139,40 @@ function processTextOp(
     const isNewline = i < lines.length - 1;
     if (isNewline) {
       const { blockType, blockAttrs } = extractBlockInfo(attrs, blockAttributes);
-      blocks = [...blocks, createBlock(blockType, blockAttrs, buffer)];
-      buffer = [];
+
+      // When softLineBreaks is enabled and this newline would create a
+      // plain paragraph, insert a line-break node instead of flushing
+      // a new block. This keeps consecutive lines within one paragraph.
+      // The LAST newline in the text always flushes (it's the block terminator).
+      const isLastNewline = i === lines.length - 2 && lines[lines.length - 1] === '';
+      if (
+        softLineBreaks &&
+        !isLastNewline &&
+        blockType === 'paragraph' &&
+        isEmptyAttrs(blockAttrs)
+      ) {
+        buffer = [...buffer, createLineBreakNode()];
+      } else {
+        blocks = [...blocks, createBlock(blockType, blockAttrs, buffer)];
+        buffer = [];
+      }
     }
   }
 
   return { blocks, buffer };
+}
+
+function isEmptyAttrs(attrs: Attributes): boolean {
+  return Object.keys(attrs).length === 0;
+}
+
+function createLineBreakNode(): TNode {
+  return {
+    type: 'line-break',
+    attributes: {},
+    children: [],
+    isInline: true,
+  };
 }
 
 function processEmbedOp(

@@ -65,6 +65,10 @@ export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
   return {
     markPriorities: QUILL_MARK_PRIORITIES,
 
+    nodeOverrides: {
+      'line-break': () => '<br/>',
+    },
+
     // ─── Block Attribute Resolvers ────────────────────────────────────
     // Computed once per block, merged, and passed to every block handler.
     blockAttributeResolvers: [(node) => ({ classes: getLayoutClasses(node, PREFIX) })],
