@@ -1,5 +1,5 @@
-import type { InlineStyleOverrides, SemanticHtmlConfig } from '../semantic-html-config';
 import type { ResolvedConfig } from '../types/resolved-config';
+import type { InlineStyleOverrides, SemanticHtmlConfig } from '../types/semantic-html-config';
 
 /**
  * Resolves a partial `SemanticHtmlConfig` into a fully-populated `ResolvedConfig`

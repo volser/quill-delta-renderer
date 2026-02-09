@@ -37,6 +37,7 @@ export { applyTransformers, composeTransformers } from './core/transformer';
 export { BaseHtmlRenderer, escapeHtml } from './renderers/html/base-html-renderer';
 export { QuillHtmlRenderer } from './renderers/html/quill/quill-html-renderer';
 export { DEFAULT_INLINE_STYLES } from './renderers/html/semantic/default-inline-styles';
+export { SemanticHtmlRenderer } from './renderers/html/semantic/semantic-html-renderer';
 export type {
   AfterRenderCallback,
   BeforeRenderCallback,
@@ -45,5 +46,4 @@ export type {
   InlineStyleOverrides,
   RenderGroupType,
   SemanticHtmlConfig,
-} from './renderers/html/semantic/semantic-html-config';
-export { SemanticHtmlRenderer } from './renderers/html/semantic/semantic-html-renderer';
+} from './renderers/html/semantic/types/semantic-html-config';

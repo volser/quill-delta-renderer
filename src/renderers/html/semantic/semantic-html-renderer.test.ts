@@ -4,8 +4,8 @@ import { listGrouper } from '../../../common/transformers/list-grouper';
 import { tableGrouper } from '../../../common/transformers/table-grouper';
 import type { Delta, TNode } from '../../../core/ast-types';
 import { DeltaParser } from '../../../core/parser';
-import type { SemanticHtmlConfig } from './semantic-html-config';
 import { SemanticHtmlRenderer } from './semantic-html-renderer';
+import type { SemanticHtmlConfig } from './types/semantic-html-config';
 
 const QUILL_CONFIG = { blockAttributes: DEFAULT_BLOCK_ATTRIBUTES };
 

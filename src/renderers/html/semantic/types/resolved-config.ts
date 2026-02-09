@@ -1,5 +1,5 @@
 import type { TNode } from '../../../../core/ast-types';
-import type { InlineStyleOverrides } from '../semantic-html-config';
+import type { InlineStyleOverrides } from './semantic-html-config';
 
 /**
  * Internal resolved config — all defaults applied, ready for use

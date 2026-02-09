@@ -1,5 +1,5 @@
 import type { TNode } from '../../../../core/ast-types';
-import type { InlineStyleConverter } from '../semantic-html-config';
+import type { InlineStyleConverter } from '../types/semantic-html-config';
 
 /**
  * Resolve an InlineStyleConverter to a CSS style string.

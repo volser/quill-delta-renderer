@@ -1,4 +1,4 @@
-import type { TNode } from '../../../core/ast-types';
+import type { TNode } from '../../../../core/ast-types';
 
 // ─── Inline Style Types ─────────────────────────────────────────────────────
 

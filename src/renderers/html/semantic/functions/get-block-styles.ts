@@ -1,7 +1,7 @@
 import type { TNode } from '../../../../core/ast-types';
 import { DEFAULT_INLINE_STYLES } from '../default-inline-styles';
-import type { InlineStyleConverter } from '../semantic-html-config';
 import type { ResolvedConfig } from '../types/resolved-config';
+import type { InlineStyleConverter } from '../types/semantic-html-config';
 import { resolveInlineStyle } from './resolve-inline-style';
 
 /**

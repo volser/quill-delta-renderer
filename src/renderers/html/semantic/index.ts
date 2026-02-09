@@ -1,4 +1,5 @@
 export { DEFAULT_INLINE_STYLES } from './default-inline-styles';
+export { SemanticHtmlRenderer } from './semantic-html-renderer';
 export type {
   AfterRenderCallback,
   BeforeRenderCallback,
@@ -7,5 +8,4 @@ export type {
   InlineStyleOverrides,
   RenderGroupType,
   SemanticHtmlConfig,
-} from './semantic-html-config';
-export { SemanticHtmlRenderer } from './semantic-html-renderer';
+} from './types/semantic-html-config';

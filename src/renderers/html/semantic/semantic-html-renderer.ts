@@ -2,14 +2,14 @@ import type { TNode } from '../../../core/ast-types';
 import { BaseHtmlRenderer, escapeHtml } from '../base-html-renderer';
 import { buildRendererConfig } from './functions/build-renderer-config';
 import { resolveConfig } from './functions/resolve-config';
+import type { ResolvedConfig } from './types/resolved-config';
 import type {
   AfterRenderCallback,
   BeforeRenderCallback,
   CustomBlotRenderer,
   RenderGroupType,
   SemanticHtmlConfig,
-} from './semantic-html-config';
-import type { ResolvedConfig } from './types/resolved-config';
+} from './types/semantic-html-config';
 
 /**
  * Renders an AST into clean, configurable HTML.
