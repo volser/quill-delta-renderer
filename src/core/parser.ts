@@ -220,7 +220,7 @@ function parseEmbedOp(insert: Record<string, unknown>, attrs: Attributes): TNode
     type: embedType,
     attributes: attrs,
     children: [],
-    data: embedData as Record<string, unknown>,
+    data: embedData as TNode['data'],
     isInline: false,
   };
 }

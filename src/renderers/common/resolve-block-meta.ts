@@ -1,6 +1,5 @@
 import type { TNode } from '../../core/ast-types';
 import { getListType } from './node-attributes';
-import { resolveCodeBlockLines } from './resolve-code-block-lines';
 
 // ─── Code Block ─────────────────────────────────────────────────────────────
 
@@ -15,7 +14,7 @@ export interface CodeBlockMeta {
  * Resolve the CSS class name and language from a code-block node's attributes.
  *
  * For individual `code-block` nodes (reads `node.attributes['code-block']`).
- * For containers, prefer {@link resolveCodeBlockLines} instead.
+ * For containers, prefer `resolveCodeBlockLines` instead.
  *
  * @param node - The code-block AST node
  * @param classPrefix - The configured class prefix (e.g. `'ql'`)
@@ -37,7 +36,7 @@ export function resolveCodeBlockMeta(node: TNode, classPrefix: string): CodeBloc
 /**
  * Build the CSS class name for a `code-block-container` from its resolved language.
  *
- * @param language - The resolved language (from {@link resolveCodeBlockLines})
+ * @param language - The resolved language (from `resolveCodeBlockLines`)
  * @param classPrefix - The configured class prefix (e.g. `'ql'`)
  */
 export function buildCodeBlockClassName(language: string | undefined, classPrefix: string): string {

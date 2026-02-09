@@ -79,15 +79,16 @@ export interface TNode {
  * Narrows `node.data` to `string` and `node.type` to `'text'`.
  */
 export function isTextNode(node: TNode): node is TNode & { type: 'text'; data: string } {
-  return node.type === 'text';
+  return node.type === 'text' && typeof node.data === 'string';
 }
 
 /**
  * Check whether a node is an embed node with object data.
+ * Excludes text nodes — only matches nodes whose `data` is a non-null object.
  * Narrows `node.data` to `Record<string, unknown>`.
  */
 export function isEmbedNode(node: TNode): node is TNode & { data: Record<string, unknown> } {
-  return typeof node.data === 'object' && node.data !== null;
+  return node.type !== 'text' && typeof node.data === 'object' && node.data !== null;
 }
 
 // ─── Transformer Types ───────────────────────────────────────────────────────

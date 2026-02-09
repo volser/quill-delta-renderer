@@ -21,7 +21,7 @@ export type InlineStyleOverrides = Partial<Record<string, InlineStyleConverter>>
 /**
  * Group types for beforeRender/afterRender callbacks.
  */
-export type RenderGroupType = 'block' | 'inline-group' | 'list' | 'video' | 'table';
+export type RenderGroupType = 'block' | 'list' | 'video' | 'table';
 
 /**
  * Called before rendering a group. Return a string to replace default rendering,

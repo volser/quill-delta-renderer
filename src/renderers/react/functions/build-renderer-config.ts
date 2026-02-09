@@ -22,7 +22,7 @@ import {
   scriptMark,
   strikeMark,
   underlineMark,
-} from '../../html/common/simple-marks';
+} from '../../common/simple-marks';
 import type { BlockComponentProps, ResolvedReactConfig } from '../types/react-config';
 import type { ReactProps } from '../types/react-props';
 
@@ -43,24 +43,63 @@ function resolveTag(
 type BlockFn = (node: TNode, children: ReactNode, resolvedAttrs: ReactProps) => ReactNode;
 
 /**
- * Wrap a block handler so that a custom component (if registered) is rendered
- * instead of the default element. Eliminates the repetitive `tryCustomComponent`
- * guard at the top of every block handler.
+ * Configuration for a block handler that extracts data once and shares it
+ * between the default render path and the custom-component path.
  */
-function withCustomComponent(
+interface BlockWithData<TData> {
+  /** Extract block-specific data from the node. Called exactly once per render. */
+  resolve: (node: TNode, children: ReactNode) => TData;
+  /** Default render using extracted data. */
+  render: (data: TData, node: TNode, children: ReactNode, resolvedAttrs: ReactProps) => ReactNode;
+  /** Convert extracted data to extra props for a custom component. */
+  toProps?: (data: TData) => Record<string, unknown> | undefined;
+}
+
+/**
+ * Wrap a block handler so that a custom component (if registered) is rendered
+ * instead of the default element.
+ *
+ * Simple form: `withCustomComponent(cfg, type, handler)` — no data extraction.
+ * Data form: `withCustomComponent(cfg, type, { resolve, render, toProps })` —
+ * extracts data once and passes it to both the default and custom-component paths.
+ */
+function withCustomComponent<TData>(
   cfg: ResolvedReactConfig,
   type: string,
-  handler: BlockFn,
-  extraPropsFromNode?: (node: TNode, children: ReactNode) => Record<string, unknown> | undefined,
+  configOrHandler: BlockWithData<TData> | BlockFn,
 ): BlockFn {
+  if (typeof configOrHandler === 'function') {
+    const handler = configOrHandler;
+    return (node, children, resolvedAttrs) => {
+      const Component: ComponentType<BlockComponentProps> | undefined = cfg.components[type];
+      if (Component) {
+        return createElement(Component, { node, children });
+      }
+      return handler(node, children, resolvedAttrs);
+    };
+  }
+
+  const { resolve, render, toProps } = configOrHandler;
   return (node, children, resolvedAttrs) => {
+    const data = resolve(node, children);
     const Component: ComponentType<BlockComponentProps> | undefined = cfg.components[type];
     if (Component) {
-      const extra = extraPropsFromNode?.(node, children);
+      const extra = toProps?.(data);
       return createElement(Component, { node, children, ...extra });
     }
-    return handler(node, children, resolvedAttrs);
+    return render(data, node, children, resolvedAttrs);
   };
+}
+
+/**
+ * Run the configured URL sanitizer, returning `undefined` for rejected URLs.
+ * If no sanitizer is configured, all URLs pass through unchanged.
+ */
+function sanitizeUrl(url: string, cfg: ResolvedReactConfig): string | undefined {
+  if (cfg.urlSanitizer) {
+    return cfg.urlSanitizer(url);
+  }
+  return url;
 }
 
 // ─── Node Override Helpers ─────────────────────────────────────────────────
@@ -85,7 +124,7 @@ function renderCodeBlockContainer(node: TNode, cfg: ResolvedReactConfig): ReactN
  * (bold, italic, underline, strike, link, script, code, font, size).
  *
  * Marks reuse the framework-agnostic `SimpleTagMark` descriptors from
- * `html/common/simple-marks.ts` — the `BaseRenderer` calls `renderSimpleTag()`
+ * `renderers/common/simple-marks.ts` — the `BaseRenderer` calls `renderSimpleTag()`
  * which the React renderer implements with `createElement`.
  *
  * Color and background are defined as `attributors` — they contribute
@@ -121,42 +160,34 @@ export function buildRendererConfig(
         return createElement(tag, null, children || null);
       }),
 
-      'code-block': withCustomComponent(
-        cfg,
-        'code-block',
-        (node, children) => {
-          const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
+      'code-block': withCustomComponent(cfg, 'code-block', {
+        resolve: (node) => resolveCodeBlockMeta(node, cfg.classPrefix),
+        render: (meta, node, children) => {
           const props: Record<string, unknown> = { className: meta.className };
           if (meta.language) props['data-language'] = meta.language;
-
           const tag = resolveTag(cfg, 'code-block', node, 'pre');
           return createElement(tag, props, children || null);
         },
-        (node) => {
-          const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
+        toProps: (meta) => {
           const props: Record<string, unknown> = { className: meta.className };
           if (meta.language) props['data-language'] = meta.language;
           return props;
         },
-      ),
+      }),
 
-      'list-item': withCustomComponent(
-        cfg,
-        'list-item',
-        (node, children) => {
-          const checked = resolveCheckedState(node);
+      'list-item': withCustomComponent(cfg, 'list-item', {
+        resolve: (node) => resolveCheckedState(node),
+        render: (checked, node, children) => {
           const props: Record<string, unknown> = {};
           if (checked !== undefined) props['data-checked'] = checked;
-
           const tag = resolveTag(cfg, 'list-item', node, 'li');
           return createElement(tag, Object.keys(props).length > 0 ? props : null, children || null);
         },
-        (node) => {
-          const checked = resolveCheckedState(node);
+        toProps: (checked) => {
           if (checked !== undefined) return { 'data-checked': checked };
           return undefined;
         },
-      ),
+      }),
 
       list: withCustomComponent(cfg, 'list', (node, children) => {
         const listType = getListType(node);
@@ -172,28 +203,22 @@ export function buildRendererConfig(
         return createElement('tr', null, children);
       }),
 
-      'table-cell': withCustomComponent(
-        cfg,
-        'table-cell',
-        (node, children) => {
-          const row = getTableRow(node);
+      'table-cell': withCustomComponent(cfg, 'table-cell', {
+        resolve: (node) => getTableRow(node),
+        render: (row, _node, children) => {
           const props: Record<string, unknown> = {};
           if (row) props['data-row'] = row;
-
           return createElement('td', Object.keys(props).length > 0 ? props : null, children);
         },
-        (node) => {
-          const row = getTableRow(node);
+        toProps: (row) => {
           if (row) return { 'data-row': row };
           return undefined;
         },
-      ),
+      }),
 
-      image: withCustomComponent(
-        cfg,
-        'image',
-        (node) => {
-          const img = resolveImageData(node);
+      image: withCustomComponent(cfg, 'image', {
+        resolve: (node) => resolveImageData(node),
+        render: (img) => {
           if (!img) return null;
 
           const imgProps: Record<string, unknown> = { src: img.src, alt: img.alt };
@@ -203,7 +228,9 @@ export function buildRendererConfig(
           const imgElement = createElement('img', imgProps);
 
           if (img.linkHref) {
-            const linkProps: Record<string, unknown> = { href: img.linkHref };
+            const sanitizedLink = sanitizeUrl(img.linkHref, cfg);
+            if (!sanitizedLink) return imgElement;
+            const linkProps: Record<string, unknown> = { href: sanitizedLink };
             if (cfg.linkTarget) linkProps.target = cfg.linkTarget;
             if (cfg.linkRel) linkProps.rel = cfg.linkRel;
             return createElement('a', linkProps, imgElement);
@@ -211,23 +238,19 @@ export function buildRendererConfig(
 
           return imgElement;
         },
-        (node) => {
-          const img = resolveImageData(node);
+        toProps: (img) => {
           if (!img) return undefined;
           const props: Record<string, unknown> = { src: img.src, alt: img.alt };
           if (img.width) props.width = img.width;
           if (img.height) props.height = img.height;
           return props;
         },
-      ),
+      }),
 
-      video: withCustomComponent(
-        cfg,
-        'video',
-        (node) => {
-          const src = resolveVideoSrc(node);
+      video: withCustomComponent(cfg, 'video', {
+        resolve: (node) => resolveVideoSrc(node),
+        render: (src) => {
           if (!src) return null;
-
           return createElement('iframe', {
             className: `${cfg.classPrefix}-video`,
             src,
@@ -235,45 +258,36 @@ export function buildRendererConfig(
             allowFullScreen: true,
           });
         },
-        (node) => {
-          const src = resolveVideoSrc(node);
+        toProps: (src) => {
           if (!src) return undefined;
           return { src, className: `${cfg.classPrefix}-video` };
         },
-      ),
+      }),
 
-      formula: withCustomComponent(
-        cfg,
-        'formula',
-        (node) => {
+      formula: withCustomComponent(cfg, 'formula', {
+        resolve: (node) => resolveFormulaText(node),
+        render: (text) => {
           const formulaClass = `${cfg.classPrefix}-formula`;
-          const text = resolveFormulaText(node);
           return createElement('span', { className: formulaClass }, text);
         },
-        (node) => {
-          const text = resolveFormulaText(node);
-          return { className: `${cfg.classPrefix}-formula`, text };
-        },
-      ),
+        toProps: (text) => ({ className: `${cfg.classPrefix}-formula`, text }),
+      }),
 
-      mention: withCustomComponent(
-        cfg,
-        'mention',
-        (node) => {
-          const mention = resolveMentionData(node);
+      mention: withCustomComponent(cfg, 'mention', {
+        resolve: (node) => resolveMentionData(node),
+        render: (mention) => {
           const linkProps: Record<string, unknown> = { href: mention.href };
           if (mention.className) linkProps.className = mention.className;
           if (mention.target) linkProps.target = mention.target;
           return createElement('a', linkProps, mention.name);
         },
-        (node) => {
-          const mention = resolveMentionData(node);
+        toProps: (mention) => {
           const props: Record<string, unknown> = { href: mention.href };
           if (mention.className) props.className = mention.className;
           if (mention.target) props.target = mention.target;
           return props;
         },
-      ),
+      }),
     },
 
     // ─── Element Marks (create wrapper elements) ─────────────────────────
@@ -287,7 +301,10 @@ export function buildRendererConfig(
       script: scriptMark,
 
       link: (content, value, node) => {
-        const href = String(value);
+        const rawHref = String(value);
+        if (!rawHref) return content;
+
+        const href = sanitizeUrl(rawHref, cfg);
         if (!href) return content;
 
         const meta = resolveLinkMeta(node, cfg.linkTarget, cfg.linkRel);

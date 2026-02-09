@@ -6,12 +6,6 @@
  */
 export interface MarkdownConfig {
   /**
-   * Use single `\n` between paragraphs instead of `\n\n`.
-   * @default false
-   */
-  singleLineBreakForPTag?: boolean;
-
-  /**
    * Character used for unordered (bullet) list items.
    * @default '*'
    */
@@ -47,7 +41,6 @@ export interface MarkdownConfig {
  * @internal
  */
 export interface ResolvedMarkdownConfig {
-  singleLineBreakForPTag: boolean;
   bulletChar: string;
   bulletPadding: string;
   indentString: string;

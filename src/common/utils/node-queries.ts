@@ -1,8 +1,16 @@
 import type { TNode } from '../../core/ast-types';
+import {
+  getIndent as getIndentAttr,
+  getListType as getListTypeAttr,
+  getTableRow,
+} from '../../renderers/common/node-attributes';
 
 /**
  * Reusable query functions for inspecting TNode type and attributes.
  * Used by transformers to avoid duplicating attribute-access logic.
+ *
+ * Primitive attribute accessors delegate to the type-safe guards
+ * in `renderers/common/node-attributes.ts`.
  */
 
 export function isListItem(node: TNode): boolean {
@@ -13,16 +21,16 @@ export function isTableCell(node: TNode): boolean {
   return node.type === 'table-cell';
 }
 
-export function getListType(node: TNode): unknown {
-  return node.attributes.list;
+export function getListType(node: TNode): string {
+  return getListTypeAttr(node);
 }
 
 export function getIndent(node: TNode): number {
-  return (Number(node.attributes.indent) || 0) as number;
+  return getIndentAttr(node) ?? 0;
 }
 
-export function getRowId(node: TNode): unknown {
-  return node.attributes.table;
+export function getRowId(node: TNode): string | undefined {
+  return getTableRow(node);
 }
 
 export function isSameListType(a: TNode, b: TNode): boolean {
@@ -31,7 +39,7 @@ export function isSameListType(a: TNode, b: TNode): boolean {
   if (!aList || !bList) return false;
 
   // checked and unchecked are treated as the same list type
-  const isCheckList = (v: unknown) => v === 'checked' || v === 'unchecked';
+  const isCheckList = (v: string) => v === 'checked' || v === 'unchecked';
   if (isCheckList(aList) && isCheckList(bList)) return true;
 
   return aList === bList;

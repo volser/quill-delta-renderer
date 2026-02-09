@@ -1,4 +1,4 @@
-export { buildAttrString, buildClassAttr } from './build-attr-string';
+export { buildAttrString } from './build-attr-string';
 export { getLayoutClasses } from './get-layout-classes';
 export {
   boldMark,

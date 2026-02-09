@@ -10,6 +10,10 @@ import {
 } from '../../common/resolve-embed-data';
 import type { ResolvedMarkdownConfig } from '../types/markdown-config';
 import { padListItemContent } from './pad-list-item-content';
+
+/** Passthrough mark handler for marks with no Markdown equivalent. */
+const identity = (content: string): string => content;
+
 import { resolveCodeBlockLanguage } from './resolve-code-block-language';
 import { resolveListType } from './resolve-list-type';
 
@@ -177,12 +181,12 @@ export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRenderer
       link: (content, value) => `[${content}](${String(value)})`,
 
       // No native Markdown equivalents — pass content through
-      underline: (content) => content as string,
-      script: (content) => content as string,
-      color: (content) => content as string,
-      background: (content) => content as string,
-      font: (content) => content as string,
-      size: (content) => content as string,
+      underline: identity,
+      script: identity,
+      color: identity,
+      background: identity,
+      font: identity,
+      size: identity,
     },
   };
 }

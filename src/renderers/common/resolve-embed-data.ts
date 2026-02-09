@@ -1,6 +1,24 @@
 import type { TNode } from '../../core/ast-types';
 import { getAlt, getHeight, getLinkHref, getWidth } from './node-attributes';
 
+// ─── Shared Helper ──────────────────────────────────────────────────────────
+
+/**
+ * Extract the source URL string from embed `data`.
+ *
+ * Handles three shapes:
+ * - `string` → returned directly
+ * - `{ url: string }` → extracts the `url` property
+ * - anything else → `''`
+ */
+function resolveEmbedSrc(data: TNode['data']): string {
+  if (typeof data === 'string') return data;
+  if (data != null && typeof data === 'object' && 'url' in data) {
+    return String((data as Record<string, unknown>).url ?? '');
+  }
+  return String(data ?? '');
+}
+
 // ─── Image ──────────────────────────────────────────────────────────────────
 
 export interface ImageData {
@@ -16,9 +34,7 @@ export interface ImageData {
  * Returns `null` if the source URL is empty.
  */
 export function resolveImageData(node: TNode): ImageData | null {
-  const data = node.data;
-  const src =
-    typeof data === 'string' ? data : String((data as Record<string, unknown>)?.url ?? data ?? '');
+  const src = resolveEmbedSrc(node.data);
   if (!src) return null;
 
   return {
@@ -37,9 +53,7 @@ export function resolveImageData(node: TNode): ImageData | null {
  * Returns `null` if the source URL is empty.
  */
 export function resolveVideoSrc(node: TNode): string | null {
-  const data = node.data;
-  const src =
-    typeof data === 'string' ? data : String((data as Record<string, unknown>)?.url ?? data ?? '');
+  const src = resolveEmbedSrc(node.data);
   return src || null;
 }
 
@@ -47,8 +61,8 @@ export function resolveVideoSrc(node: TNode): string | null {
 
 /**
  * Extract the formula text from a formula embed node.
+ * Returns `''` if data is missing or not a string.
  */
 export function resolveFormulaText(node: TNode): string {
-  const data = node.data as string | Record<string, unknown>;
-  return typeof data === 'string' ? data : String(data);
+  return typeof node.data === 'string' ? node.data : '';
 }

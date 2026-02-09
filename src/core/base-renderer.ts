@@ -292,7 +292,7 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
    *    - If no element marks, wrap in a default element with collected attrs
    */
   protected renderTextNode(node: TNode): Output {
-    let output = this.renderText(node.data as string);
+    let output = this.renderText(typeof node.data === 'string' ? node.data : '');
 
     // Phase 1: Collect attributor contributions
     const collectedAttrs = this.collectAttributorAttrs(node);

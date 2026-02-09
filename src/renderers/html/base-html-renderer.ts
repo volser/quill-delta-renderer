@@ -118,7 +118,7 @@ export abstract class BaseHtmlRenderer extends BaseRenderer<string, ResolvedAttr
 
   /**
    * Render a declarative block descriptor:
-   * `<tag [resolvedAttrs]>{children || '<br>'}</tag>`.
+   * `<tag [resolvedAttrs]>{children || '<br/>'}</tag>`.
    */
   protected renderBlockFromDescriptor(
     descriptor: BlockDescriptor,
@@ -134,7 +134,7 @@ export abstract class BaseHtmlRenderer extends BaseRenderer<string, ResolvedAttr
       return `<${tag}${attrStr}>`;
     }
 
-    const content = childrenOutput || '<br>';
+    const content = childrenOutput || '<br/>';
     return `<${tag}${attrStr}>${content}</${tag}>`;
   }
 }

@@ -1,6 +1,9 @@
 export type {
   Attributes,
+  AttributorHandler,
   BlockAttributeHandler,
+  BlockAttributeResolver,
+  BlockDescriptor,
   BlockHandler,
   Delta,
   DeltaOp,
@@ -10,6 +13,7 @@ export type {
   NodeOverrideHandler,
   ParserConfig,
   RendererConfig,
+  SimpleTagMark,
   TNode,
   Transformer,
 } from './ast-types';

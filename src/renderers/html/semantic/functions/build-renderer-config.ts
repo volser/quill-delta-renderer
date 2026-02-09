@@ -12,9 +12,6 @@ import {
   resolveVideoSrc,
 } from '../../../common/resolve-embed-data';
 import { resolveMentionData } from '../../../common/resolve-mention-data';
-import { serializeResolvedAttrs } from '../../base-html-renderer';
-import { buildAttrString } from '../../common/build-attr-string';
-import type { ResolvedAttrs } from '../../common/resolved-attrs';
 import {
   boldMark,
   codeMark,
@@ -22,7 +19,10 @@ import {
   scriptMark,
   strikeMark,
   underlineMark,
-} from '../../common/simple-marks';
+} from '../../../common/simple-marks';
+import { serializeResolvedAttrs } from '../../base-html-renderer';
+import { buildAttrString } from '../../common/build-attr-string';
+import type { ResolvedAttrs } from '../../common/resolved-attrs';
 import { DEFAULT_INLINE_STYLES } from '../consts/default-inline-styles';
 import type { ResolvedConfig } from '../types/resolved-config';
 import type { InlineStyleConverter, RenderGroupType } from '../types/semantic-html-config';

@@ -6,12 +6,12 @@ describe('QuillHtmlRenderer integration: blocks', () => {
     expect(renderDelta({ ops: [{ insert: 'Hello world\n' }] })).toBe('<p>Hello world</p>');
   });
 
-  it('should render empty paragraph with <br>', () => {
-    expect(renderDelta({ ops: [{ insert: '\n' }] })).toBe('<p><br></p>');
+  it('should render empty paragraph with <br/>', () => {
+    expect(renderDelta({ ops: [{ insert: '\n' }] })).toBe('<p><br/></p>');
   });
 
   it('should render multiple blank lines', () => {
-    expect(renderDelta({ ops: [{ insert: '\n\n' }] })).toBe('<p><br></p><p><br></p>');
+    expect(renderDelta({ ops: [{ insert: '\n\n' }] })).toBe('<p><br/></p><p><br/></p>');
   });
 
   it('should render newlines as separate paragraphs', () => {
@@ -27,11 +27,11 @@ describe('QuillHtmlRenderer integration: blocks', () => {
     }
   });
 
-  it('should render empty header with <br>', () => {
+  it('should render empty header with <br/>', () => {
     const html = renderDelta({
       ops: [{ insert: '\n', attributes: { header: 2 } }],
     });
-    expect(html).toBe('<h2><br></h2>');
+    expect(html).toBe('<h2><br/></h2>');
   });
 
   it('should render a blockquote', () => {
@@ -41,11 +41,11 @@ describe('QuillHtmlRenderer integration: blocks', () => {
     expect(html).toBe('<blockquote>A quote</blockquote>');
   });
 
-  it('should render empty blockquote with <br>', () => {
+  it('should render empty blockquote with <br/>', () => {
     const html = renderDelta({
       ops: [{ insert: '\n', attributes: { blockquote: true } }],
     });
-    expect(html).toBe('<blockquote><br></blockquote>');
+    expect(html).toBe('<blockquote><br/></blockquote>');
   });
 
   it('should render a code block with ql-code-block-container and ql-code-block', () => {
@@ -71,12 +71,12 @@ describe('QuillHtmlRenderer integration: blocks', () => {
     expect(html).toContain('const x = 1;');
   });
 
-  it('should render empty code block with <br>', () => {
+  it('should render empty code block with <br/>', () => {
     const html = renderDelta({
       ops: [{ insert: '\n', attributes: { 'code-block': true } }],
     });
     expect(html).toBe(
-      '<div class="ql-code-block-container" spellcheck="false"><div class="ql-code-block"><br></div></div>',
+      '<div class="ql-code-block-container" spellcheck="false"><div class="ql-code-block"><br/></div></div>',
     );
   });
 });

@@ -10,11 +10,13 @@ import type { TNode } from '../../core/ast-types';
 
 // ─── Primitive guards ───────────────────────────────────────────────────────
 
-function asString(value: unknown): string | undefined {
+/** Narrow `unknown` to `string` at runtime. Returns `undefined` if the value is not a string. */
+export function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-function asNumber(value: unknown): number | undefined {
+/** Narrow `unknown` to `number` at runtime. Returns `undefined` if the value is not a number. */
+export function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' ? value : undefined;
 }
 

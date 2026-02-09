@@ -6,7 +6,6 @@ import type { MarkdownConfig, ResolvedMarkdownConfig } from '../types/markdown-c
  */
 export function resolveConfig(config?: MarkdownConfig): ResolvedMarkdownConfig {
   return {
-    singleLineBreakForPTag: config?.singleLineBreakForPTag ?? false,
     bulletChar: config?.bulletChar ?? '*',
     bulletPadding: config?.bulletPadding ?? '   ',
     indentString: config?.indentString ?? '    ',

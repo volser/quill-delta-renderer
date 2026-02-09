@@ -13,5 +13,6 @@ export function resolveConfig(config?: ReactRendererConfig): ResolvedReactConfig
     linkRel: c.linkRel,
     components: c.components ?? {},
     customTag: c.customTag,
+    urlSanitizer: c.urlSanitizer,
   };
 }

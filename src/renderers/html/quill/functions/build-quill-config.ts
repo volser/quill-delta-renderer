@@ -1,16 +1,16 @@
 import type { RendererConfig } from '../../../../core/ast-types';
 import {
-  getAlt,
+  getHeaderLevel,
   getHeight,
   getListType,
   getTableRow,
   getWidth,
 } from '../../../common/node-attributes';
-import { resolveFormulaText } from '../../../common/resolve-embed-data';
-import { escapeHtml, serializeResolvedAttrs } from '../../base-html-renderer';
-import { buildAttrString } from '../../common/build-attr-string';
-import { getLayoutClasses } from '../../common/get-layout-classes';
-import type { ResolvedAttrs } from '../../common/resolved-attrs';
+import {
+  resolveFormulaText,
+  resolveImageData,
+  resolveVideoSrc,
+} from '../../../common/resolve-embed-data';
 import {
   boldMark,
   codeMark,
@@ -18,7 +18,11 @@ import {
   scriptMark,
   strikeMark,
   underlineMark,
-} from '../../common/simple-marks';
+} from '../../../common/simple-marks';
+import { escapeHtml, serializeResolvedAttrs } from '../../base-html-renderer';
+import { buildAttrString } from '../../common/build-attr-string';
+import { getLayoutClasses } from '../../common/get-layout-classes';
+import type { ResolvedAttrs } from '../../common/resolved-attrs';
 
 const PREFIX = 'ql';
 
@@ -69,7 +73,7 @@ export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
     blocks: {
       // Declarative: renderer auto-handles attrs + empty content
       paragraph: { tag: 'p' },
-      header: { tag: (node) => `h${node.attributes.header}` },
+      header: { tag: (node) => `h${getHeaderLevel(node)}` },
       blockquote: { tag: 'blockquote' },
 
       // Complex blocks — receive pre-computed resolvedAttrs
@@ -87,13 +91,13 @@ export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
           attrs['data-language'] = lang;
         }
 
-        const content = children || '<br>';
+        const content = children || '<br/>';
         return `<div${buildAttrString(attrs)}>${content}</div>`;
       },
 
       'list-item': (node, children, resolvedAttrs) => {
         const listType = getListType(node);
-        const content = children || '<br>';
+        const content = children || '<br/>';
 
         const classes = [...(resolvedAttrs.classes ?? [])];
         const attrs: Record<string, string> = {};
@@ -127,21 +131,21 @@ export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
       },
 
       image: (node) => {
-        const src = String(node.data);
-        const alt = getAlt(node);
-        const width = getWidth(node);
-        const height = getHeight(node);
+        const img = resolveImageData(node);
+        if (!img) return '';
 
-        const attrs: Record<string, string> = { src };
-        if (alt) attrs.alt = alt;
-        if (width) attrs.width = width;
-        if (height) attrs.height = height;
+        const attrs: Record<string, string> = { src: img.src };
+        if (img.alt) attrs.alt = img.alt;
+        if (img.width) attrs.width = img.width;
+        if (img.height) attrs.height = img.height;
 
         return `<img${buildAttrString(attrs)}>`;
       },
 
       video: (node) => {
-        const src = String(node.data);
+        const src = resolveVideoSrc(node);
+        if (!src) return '';
+
         const width = getWidth(node);
         const height = getHeight(node);
 

@@ -72,11 +72,11 @@ describe('QuillHtmlRenderer integration: lists', () => {
     );
   });
 
-  it('should render empty list item with <br>', () => {
+  it('should render empty list item with <br/>', () => {
     const html = renderDelta({
       ops: [{ insert: '\n', attributes: { list: 'bullet' } }],
     });
-    expect(html).toContain('<li data-list="bullet"><br></li>');
+    expect(html).toContain('<li data-list="bullet"><br/></li>');
   });
 
   it('should render list item with align class', () => {

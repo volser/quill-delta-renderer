@@ -69,6 +69,25 @@ export interface ReactRendererConfig {
    * Return `undefined` to use the default tag.
    */
   customTag?: (format: string, node: TNode) => string | undefined;
+
+  /**
+   * Custom URL sanitizer. Return a sanitized URL string to allow it,
+   * or `undefined` to suppress the link entirely.
+   *
+   * When set, all URLs in links and image link wrappers are passed through
+   * this function before being rendered. This is the recommended way to
+   * prevent `javascript:` and other dangerous URL schemes.
+   *
+   * @example
+   * ```tsx
+   * import { createUrlSanitizer } from 'quill-delta-render/common';
+   *
+   * const renderer = new ReactRenderer({
+   *   urlSanitizer: createUrlSanitizer(),
+   * });
+   * ```
+   */
+  urlSanitizer?: (url: string) => string | undefined;
 }
 
 /**
@@ -81,4 +100,5 @@ export interface ResolvedReactConfig {
   linkRel: string | undefined;
   components: Record<string, ComponentType<BlockComponentProps>>;
   customTag: ((format: string, node: TNode) => string | undefined) | undefined;
+  urlSanitizer: ((url: string) => string | undefined) | undefined;
 }
