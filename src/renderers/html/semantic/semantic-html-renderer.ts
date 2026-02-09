@@ -106,12 +106,18 @@ export class SemanticHtmlRenderer extends BaseHtmlRenderer {
       }
     }
 
-    // Standard rendering
-    const blockHandler = this.blocks[node.type];
+    // Standard rendering — delegate to base class renderNode logic
+    const blockConfig = this.blocks[node.type];
     let html: string;
-    if (blockHandler) {
+    if (blockConfig) {
       const childrenOutput = this.renderChildren(node);
-      html = blockHandler(node, childrenOutput);
+      const resolvedAttrs = this.resolveBlockAttributes(node);
+
+      if (typeof blockConfig === 'object' && 'tag' in blockConfig) {
+        html = this.renderBlockFromDescriptor(blockConfig, node, childrenOutput, resolvedAttrs);
+      } else {
+        html = blockConfig(node, childrenOutput, resolvedAttrs);
+      }
     } else {
       html = this.renderChildren(node);
     }

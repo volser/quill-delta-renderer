@@ -145,11 +145,7 @@ describe('Quill compat: inline attributors', () => {
     });
   });
 
-  // Known architectural difference: Quill merges color/background attributors
-  // into the parent blot's element (e.g. <strong style="color: ...; background: ...">),
-  // while our renderer creates separate wrapper spans. The rendered content is
-  // semantically equivalent but structurally different.
-  it.skip('color + background + bold combined (known difference: attributor merging)', () => {
+  it('color + background + bold combined', () => {
     assertHtmlMatch({
       ops: [
         {
@@ -456,11 +452,7 @@ describe('Quill compat: complex mixed content', () => {
     });
   });
 
-  // Known architectural difference: Quill renders bold OUTSIDE link when both
-  // are present, and attributor-based styles (color) get merged into the
-  // parent blot element. Our renderer's mark priorities handle bold>link
-  // nesting, but color creates a separate wrapper span.
-  it.skip('paragraph with link + color + bold (known difference: attributor merging)', () => {
+  it('paragraph with link + color + bold', () => {
     assertHtmlMatch({
       ops: [
         { insert: 'Visit ' },

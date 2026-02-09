@@ -19,7 +19,9 @@ export type { UrlSanitizerConfig } from './common/utils/url-sanitizer';
 export { createUrlSanitizer } from './common/utils/url-sanitizer';
 export type {
   Attributes,
+  AttributorHandler,
   BlockAttributeHandler,
+  BlockAttributeResolver,
   BlockHandler,
   Delta,
   DeltaOp,
@@ -34,7 +36,17 @@ export { DeltaParser } from './core/parser';
 export { applyTransformers, composeTransformers } from './core/transformer';
 
 // Renderers
-export { BaseHtmlRenderer, escapeHtml } from './renderers/html/base-html-renderer';
+export {
+  BaseHtmlRenderer,
+  escapeHtml,
+  serializeResolvedAttrs,
+} from './renderers/html/base-html-renderer';
+export type { ResolvedAttrs } from './renderers/html/common/resolved-attrs';
+export {
+  EMPTY_RESOLVED_ATTRS,
+  hasResolvedAttrs,
+  mergeResolvedAttrs,
+} from './renderers/html/common/resolved-attrs';
 export { QuillHtmlRenderer } from './renderers/html/quill/quill-html-renderer';
 export { DEFAULT_INLINE_STYLES } from './renderers/html/semantic/consts/default-inline-styles';
 export { SemanticHtmlRenderer } from './renderers/html/semantic/semantic-html-renderer';

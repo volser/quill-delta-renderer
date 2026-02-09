@@ -1,6 +1,8 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorities';
 import type { RendererConfig } from '../../../../core/ast-types';
+import { serializeResolvedAttrs } from '../../base-html-renderer';
 import { buildAttrString } from '../../common/build-attr-string';
+import type { ResolvedAttrs } from '../../common/resolved-attrs';
 import {
   boldMark,
   codeMark,
@@ -21,10 +23,12 @@ import { sanitizeUrl } from './sanitize-url';
  * Build a full `RendererConfig` from the resolved semantic config.
  * Defines all block handlers (paragraph, header, blockquote, code-block,
  * list, table, image, video, formula, mention) and mark handlers
- * (bold, italic, underline, strike, link, color, background, script, code,
- * font, size).
+ * (bold, italic, underline, strike, link, script, code, font, size).
+ *
+ * Color and background are defined as `attributors` — they contribute
+ * styles/classes to the nearest element mark rather than wrapping.
  */
-export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string> {
+export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string, ResolvedAttrs> {
   return {
     markPriorities: DEFAULT_MARK_PRIORITIES,
     blocks: {
@@ -192,13 +196,14 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string>
       },
     },
 
+    // ─── Element Marks (create wrapper elements) ─────────────────────
     marks: {
       bold: boldMark,
       italic: italicMark,
       underline: underlineMark,
       strike: strikeMark,
 
-      link: (content, value, node) => {
+      link: (content, value, node, collectedAttrs) => {
         const rawHref = String(value);
         const href = sanitizeUrl(rawHref, cfg);
         if (!href) return content;
@@ -216,19 +221,9 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string>
         if (rel) {
           attrs += ` rel="${rel}"`;
         }
-        return `<a ${attrs}>${content}</a>`;
-      },
 
-      color: (content, value) => {
-        return `<span style="color:${encodeText(String(value), cfg)}">${content}</span>`;
-      },
-
-      background: (content, value) => {
-        if (cfg.allowBackgroundClasses) {
-          const cls = `${cfg.classPrefix}-background-${value}`;
-          return `<span class="${cls}">${content}</span>`;
-        }
-        return `<span style="background-color:${encodeText(String(value), cfg)}">${content}</span>`;
+        const collected = serializeResolvedAttrs(collectedAttrs);
+        return `<a ${attrs}${collected}>${content}</a>`;
       },
 
       script: scriptMark,
@@ -265,6 +260,22 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string>
           return `<span class="${cfg.classPrefix}-size-${encodeText(String(value), cfg)}">${content}</span>`;
         }
         return `<span class="${cfg.classPrefix}-size-${encodeText(String(value), cfg)}">${content}</span>`;
+      },
+    },
+
+    // ─── Attributor Marks (contribute attrs to parent element) ───────
+    attributors: {
+      color: (value) => ({
+        style: { color: encodeText(String(value), cfg) },
+      }),
+
+      background: (value) => {
+        if (cfg.allowBackgroundClasses) {
+          return { classes: [`${cfg.classPrefix}-background-${value}`] };
+        }
+        return {
+          style: { 'background-color': encodeText(String(value), cfg) },
+        };
       },
     },
   };

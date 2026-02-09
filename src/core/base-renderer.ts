@@ -1,28 +1,69 @@
-import type { BlockHandler, MarkHandler, RendererConfig, TNode } from './ast-types';
+import type {
+  AttributorHandler,
+  BlockDescriptor,
+  BlockHandler,
+  MarkHandler,
+  RendererConfig,
+  SimpleTagMark,
+  TNode,
+} from './ast-types';
+
+/**
+ * Type guard — check if a mark config is a {@link SimpleTagMark} descriptor.
+ */
+function isSimpleTagMark<Output, Attrs>(
+  mark: MarkHandler<Output, Attrs> | SimpleTagMark,
+): mark is SimpleTagMark {
+  return typeof mark === 'object' && 'tag' in mark;
+}
+
+/**
+ * Type guard — check if a block config is a {@link BlockDescriptor}.
+ */
+function isBlockDescriptor<Output, Attrs>(
+  block: BlockHandler<Output, Attrs> | BlockDescriptor,
+): block is BlockDescriptor {
+  return typeof block === 'object' && 'tag' in block;
+}
 
 /**
  * Abstract base class for all renderers.
  *
  * Handles:
  * - Recursive AST traversal
- * - Mark (inline formatting) priority sorting
+ * - Mark (inline formatting) priority sorting with attributor support
+ * - Block attribute resolution
+ * - Declarative block/mark descriptors
  * - Runtime extension via `extendBlock()` / `extendMark()`
  *
  * Subclasses must implement:
  * - `joinChildren()` — how to combine rendered children into a single output
  * - `renderText()` — how to render a plain text leaf node
+ * - `emptyAttrs()` — return the identity/empty value for the Attrs type
+ * - `mergeAttrs()` — merge two Attrs objects into one
+ * - `hasAttrs()` — check whether an Attrs object has any content
+ * - `wrapWithAttrs()` — how to wrap content in a default element with collected attrs
+ * - `renderSimpleTag()` — how to render a simple tag mark with optional collected attrs
+ * - `renderBlockFromDescriptor()` — how to render a declarative block descriptor
  *
  * @typeParam Output - The rendered output type (string, ReactNode, etc.)
+ * @typeParam Attrs - The collected attribute type. Each renderer defines
+ *   its own shape (e.g., HTML uses `ResolvedAttrs` with style/classes/attrs;
+ *   React could use a props object; Markdown uses `never`).
  */
-export abstract class BaseRenderer<Output> {
-  protected blocks: Record<string, BlockHandler<Output>>;
-  protected marks: Record<string, MarkHandler<Output>>;
+export abstract class BaseRenderer<Output, Attrs = unknown> {
+  protected blocks: Record<string, BlockHandler<Output, Attrs> | BlockDescriptor>;
+  protected marks: Record<string, MarkHandler<Output, Attrs> | SimpleTagMark>;
+  protected attributors: Record<string, AttributorHandler<Attrs>>;
   protected markPriorities: Record<string, number>;
+  protected blockAttributeResolvers: Array<(node: TNode) => Attrs>;
 
-  constructor(config: RendererConfig<Output>) {
+  constructor(config: RendererConfig<Output, Attrs>) {
     this.blocks = { ...config.blocks };
     this.marks = { ...config.marks };
+    this.attributors = { ...config.attributors };
     this.markPriorities = { ...config.markPriorities };
+    this.blockAttributeResolvers = [...(config.blockAttributeResolvers ?? [])];
   }
 
   /**
@@ -34,26 +75,23 @@ export abstract class BaseRenderer<Output> {
 
   /**
    * Override or add a block handler at runtime.
-   *
-   * @example
-   * ```ts
-   * renderer.extendBlock('image', (node) => `<figure>...</figure>`);
-   * ```
    */
-  extendBlock(type: string, handler: BlockHandler<Output>): void {
+  extendBlock(type: string, handler: BlockHandler<Output, Attrs> | BlockDescriptor): void {
     this.blocks[type] = handler;
   }
 
   /**
    * Override or add a mark handler at runtime.
-   *
-   * @example
-   * ```ts
-   * renderer.extendMark('mention', (content, userId) => `<a>@${content}</a>`);
-   * ```
    */
-  extendMark(name: string, handler: MarkHandler<Output>): void {
+  extendMark(name: string, handler: MarkHandler<Output, Attrs> | SimpleTagMark): void {
     this.marks[name] = handler;
+  }
+
+  /**
+   * Override or add an attributor at runtime.
+   */
+  extendAttributor(name: string, handler: AttributorHandler<Attrs>): void {
+    this.attributors[name] = handler;
   }
 
   /**
@@ -62,6 +100,13 @@ export abstract class BaseRenderer<Output> {
    */
   setMarkPriority(name: string, priority: number): void {
     this.markPriorities[name] = priority;
+  }
+
+  /**
+   * Add a block attribute resolver at runtime.
+   */
+  addBlockAttributeResolver(resolver: (node: TNode) => Attrs): void {
+    this.blockAttributeResolvers.push(resolver);
   }
 
   // ─── Abstract Methods (must be implemented by subclasses) ───────────────
@@ -78,6 +123,51 @@ export abstract class BaseRenderer<Output> {
    */
   protected abstract renderText(text: string): Output;
 
+  /**
+   * Return the empty/identity value for the `Attrs` type.
+   * Used as the starting point for attribute collection.
+   */
+  protected abstract emptyAttrs(): Attrs;
+
+  /**
+   * Merge two `Attrs` objects into one. Source values take precedence
+   * over target values on conflict.
+   */
+  protected abstract mergeAttrs(target: Attrs, source: Attrs): Attrs;
+
+  /**
+   * Check whether an `Attrs` object has any meaningful content.
+   * Returns false for the empty/identity value.
+   */
+  protected abstract hasAttrs(attrs: Attrs): boolean;
+
+  /**
+   * Wrap content in a default element (e.g. `<span>`) with the given
+   * collected attributor attrs. Used when there are attributor marks
+   * but no element marks on a text node.
+   */
+  protected abstract wrapWithAttrs(content: Output, attrs: Attrs): Output;
+
+  /**
+   * Render a simple tag mark. For HTML: `<tag [attrs]>content</tag>`.
+   *
+   * @param tag - The resolved tag name
+   * @param content - The already-rendered inner content
+   * @param collectedAttrs - Optional attrs from attributors (only for innermost mark)
+   */
+  protected abstract renderSimpleTag(tag: string, content: Output, collectedAttrs?: Attrs): Output;
+
+  /**
+   * Render a block from a declarative {@link BlockDescriptor}.
+   * For HTML: `<tag [resolvedAttrs]>{children || emptyContent}</tag>`.
+   */
+  protected abstract renderBlockFromDescriptor(
+    descriptor: BlockDescriptor,
+    node: TNode,
+    childrenOutput: Output,
+    resolvedAttrs: Attrs,
+  ): Output;
+
   // ─── Tree Traversal ────────────────────────────────────────────────────
 
   protected renderNode(node: TNode): Output {
@@ -91,11 +181,17 @@ export abstract class BaseRenderer<Output> {
       return this.renderTextNode(node);
     }
 
-    // Block-level node — use the block handler if available
-    const blockHandler = this.blocks[node.type];
-    if (blockHandler) {
+    // Block-level node
+    const blockConfig = this.blocks[node.type];
+    if (blockConfig) {
       const childrenOutput = this.renderChildren(node);
-      return blockHandler(node, childrenOutput);
+      const resolvedAttrs = this.resolveBlockAttributes(node);
+
+      if (isBlockDescriptor(blockConfig)) {
+        return this.renderBlockFromDescriptor(blockConfig, node, childrenOutput, resolvedAttrs);
+      }
+
+      return blockConfig(node, childrenOutput, resolvedAttrs);
     }
 
     // Fallback: render children only (transparent wrapper)
@@ -108,46 +204,106 @@ export abstract class BaseRenderer<Output> {
   }
 
   /**
-   * Render a text node, applying all inline marks sorted by priority.
-   * Marks are applied from lowest priority (innermost) to highest (outermost).
+   * Render a text node with two-phase mark application:
+   * 1. Collect attributor contributions into a single `Attrs`
+   * 2. Apply element marks from innermost to outermost
+   *    - The innermost element mark receives the collected attrs
+   *    - If no element marks, wrap in a default element with collected attrs
    */
   protected renderTextNode(node: TNode): Output {
     let output = this.renderText(node.data as string);
 
-    // Collect applicable marks from the node's attributes
-    const applicableMarks = this.getApplicableMarks(node);
+    // Phase 1: Collect attributor contributions
+    const collectedAttrs = this.collectAttributorAttrs(node);
 
-    // Sort by priority ascending — lowest priority wraps innermost
-    applicableMarks.sort((a, b) => a.priority - b.priority);
+    // Phase 2: Collect and sort element marks
+    const elementMarks = this.getApplicableElementMarks(node);
+    elementMarks.sort((a, b) => a.priority - b.priority);
 
-    // Apply marks from innermost to outermost
-    for (const { handler, value } of applicableMarks) {
-      output = handler(output, value, node);
+    const hasCollected = this.hasAttrs(collectedAttrs);
+
+    if (elementMarks.length > 0) {
+      // Apply element marks from innermost to outermost
+      for (const [i, entry] of elementMarks.entries()) {
+        const { mark, value } = entry;
+        // Only the innermost mark (i === 0) receives collected attrs
+        const attrs = i === 0 && hasCollected ? collectedAttrs : undefined;
+
+        if (isSimpleTagMark(mark)) {
+          const tag = typeof mark.tag === 'function' ? mark.tag(value) : mark.tag;
+          output = this.renderSimpleTag(tag, output, attrs);
+        } else {
+          output = mark(output, value, node, attrs);
+        }
+      }
+    } else if (hasCollected) {
+      // No element marks, but attributors contributed attrs — wrap in default element
+      output = this.wrapWithAttrs(output, collectedAttrs);
     }
 
     return output;
   }
 
-  private getApplicableMarks(node: TNode): Array<{
+  /**
+   * Resolve block attributes by running all configured resolvers
+   * and merging their results.
+   */
+  protected resolveBlockAttributes(node: TNode): Attrs {
+    let result = this.emptyAttrs();
+
+    for (const resolver of this.blockAttributeResolvers) {
+      const contribution = resolver(node);
+      if (this.hasAttrs(contribution)) {
+        result = this.hasAttrs(result) ? this.mergeAttrs(result, contribution) : contribution;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Collect inline attributor contributions from a node's attributes.
+   */
+  private collectAttributorAttrs(node: TNode): Attrs {
+    let result = this.emptyAttrs();
+
+    for (const [attrName, attrValue] of Object.entries(node.attributes)) {
+      const handler = this.attributors[attrName];
+      if (handler) {
+        const contribution = handler(attrValue, node);
+        if (this.hasAttrs(contribution)) {
+          result = this.hasAttrs(result) ? this.mergeAttrs(result, contribution) : contribution;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Get applicable element marks (from `marks` config) for a text node.
+   * Excludes attributes handled by `attributors`.
+   */
+  private getApplicableElementMarks(node: TNode): Array<{
     name: string;
-    handler: MarkHandler<Output>;
+    mark: MarkHandler<Output, Attrs> | SimpleTagMark;
     value: unknown;
     priority: number;
   }> {
     const result: Array<{
       name: string;
-      handler: MarkHandler<Output>;
+      mark: MarkHandler<Output, Attrs> | SimpleTagMark;
       value: unknown;
       priority: number;
     }> = [];
 
     for (const [attrName, attrValue] of Object.entries(node.attributes)) {
-      const handler = this.marks[attrName];
-      if (handler) {
+      const mark = this.marks[attrName];
+      if (mark) {
         const priority = this.markPriorities[attrName] ?? 0;
         result.push({
           name: attrName,
-          handler,
+          mark,
           value: attrValue,
           priority,
         });

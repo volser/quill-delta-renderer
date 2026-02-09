@@ -1,30 +1,8 @@
-/**
- * Mark nesting priorities matching Quill's actual DOM nesting order.
- *
- * In Quill's Parchment, simple format blots (Bold, Strike) wrap outside
- * more complex ones (Link, Italic, Underline). Color and background are
- * Parchment Attributors (they modify the parent element's style rather
- * than creating wrapper elements), so their priority only matters
- * relative to other marks in our renderer.
- */
-const QUILL_MARK_PRIORITIES: Record<string, number> = {
-  background: 80,
-  color: 70,
-  bold: 50,
-  strike: 40,
-  underline: 30,
-  italic: 20,
-  link: 15,
-  code: 10,
-  script: 5,
-  font: 3,
-  size: 2,
-};
-
 import type { RendererConfig } from '../../../../core/ast-types';
-import { escapeHtml } from '../../base-html-renderer';
-import { buildAttrString, buildClassAttr } from '../../common/build-attr-string';
+import { escapeHtml, serializeResolvedAttrs } from '../../base-html-renderer';
+import { buildAttrString } from '../../common/build-attr-string';
 import { getLayoutClasses } from '../../common/get-layout-classes';
+import type { ResolvedAttrs } from '../../common/resolved-attrs';
 import {
   boldMark,
   codeMark,
@@ -37,6 +15,23 @@ import {
 const PREFIX = 'ql';
 
 /**
+ * Mark nesting priorities matching Quill's actual DOM nesting order.
+ *
+ * Only element marks (bold, strike, etc.) need priorities here.
+ * Color, background, font, and size are attributors — they contribute
+ * styles/classes to the nearest element mark instead of creating wrappers.
+ */
+const QUILL_MARK_PRIORITIES: Record<string, number> = {
+  bold: 50,
+  strike: 40,
+  underline: 30,
+  italic: 20,
+  link: 15,
+  code: 10,
+  script: 5,
+};
+
+/**
  * Build the full `RendererConfig` for the Quill-native HTML renderer.
  *
  * Produces markup that exactly matches Quill editor's output, including:
@@ -45,33 +40,31 @@ const PREFIX = 'ql';
  * - `spellcheck="false"` on code blocks
  * - `rel="noopener noreferrer"` on links
  * - `data-row` on table cells
- * - `data-list` for checked/unchecked list items
+ * - `data-list` for all list items
  * - `data-language` on code blocks with a specified language
+ *
+ * Layout classes (indent, align, direction) are computed centrally
+ * via `blockAttributeResolvers` — no need to repeat in each handler.
+ *
+ * Color, background, font, and size are `attributors` — they contribute
+ * styles/classes to the nearest element mark rather than wrapping.
  */
-export function buildQuillConfig(): RendererConfig<string> {
+export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
   return {
     markPriorities: QUILL_MARK_PRIORITIES,
+
+    // ─── Block Attribute Resolvers ────────────────────────────────────
+    // Computed once per block, merged, and passed to every block handler.
+    blockAttributeResolvers: [(node) => ({ classes: getLayoutClasses(node, PREFIX) })],
+
+    // ─── Blocks ──────────────────────────────────────────────────────
     blocks: {
-      paragraph: (node, children) => {
-        const cls = buildClassAttr(getLayoutClasses(node, PREFIX));
-        const content = children || '<br>';
-        return `<p${cls}>${content}</p>`;
-      },
+      // Declarative: renderer auto-handles attrs + empty content
+      paragraph: { tag: 'p' },
+      header: { tag: (node) => `h${node.attributes.header}` },
+      blockquote: { tag: 'blockquote' },
 
-      header: (node, children) => {
-        const level = node.attributes.header as number;
-        const tag = `h${level}`;
-        const cls = buildClassAttr(getLayoutClasses(node, PREFIX));
-        const content = children || '<br>';
-        return `<${tag}${cls}>${content}</${tag}>`;
-      },
-
-      blockquote: (node, children) => {
-        const cls = buildClassAttr(getLayoutClasses(node, PREFIX));
-        const content = children || '<br>';
-        return `<blockquote${cls}>${content}</blockquote>`;
-      },
-
+      // Complex blocks — receive pre-computed resolvedAttrs
       'code-block-container': (_node, children) => {
         return `<div class="${PREFIX}-code-block-container" spellcheck="false">${children}</div>`;
       },
@@ -90,14 +83,14 @@ export function buildQuillConfig(): RendererConfig<string> {
         return `<div${buildAttrString(attrs)}>${content}</div>`;
       },
 
-      'list-item': (node, children) => {
+      'list-item': (node, children, resolvedAttrs) => {
         const listType = node.attributes.list as string;
         const content = children || '<br>';
-        const layoutClasses = getLayoutClasses(node, PREFIX);
 
+        const classes = [...(resolvedAttrs.classes ?? [])];
         const attrs: Record<string, string> = {};
-        if (layoutClasses.length > 0) {
-          attrs.class = layoutClasses.join(' ');
+        if (classes.length > 0) {
+          attrs.class = classes.join(' ');
         }
         attrs['data-list'] = listType;
 
@@ -168,6 +161,7 @@ export function buildQuillConfig(): RendererConfig<string> {
       },
     },
 
+    // ─── Element Marks (create wrapper elements) ─────────────────────
     marks: {
       bold: boldMark,
       italic: italicMark,
@@ -176,26 +170,27 @@ export function buildQuillConfig(): RendererConfig<string> {
       script: scriptMark,
       code: codeMark,
 
-      link: (content, value) => {
+      link: (content, value, _node, collectedAttrs) => {
         const href = escapeHtml(String(value));
-        return `<a href="${href}" target="_blank" rel="noopener noreferrer">${content}</a>`;
+        const attrStr = serializeResolvedAttrs(collectedAttrs);
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer"${attrStr}>${content}</a>`;
       },
+    },
 
-      color: (content, value) => {
-        return `<span style="color: ${escapeHtml(String(value))}">${content}</span>`;
-      },
-
-      background: (content, value) => {
-        return `<span style="background-color: ${escapeHtml(String(value))}">${content}</span>`;
-      },
-
-      font: (content, value) => {
-        return `<span class="${PREFIX}-font-${escapeHtml(String(value))}">${content}</span>`;
-      },
-
-      size: (content, value) => {
-        return `<span class="${PREFIX}-size-${escapeHtml(String(value))}">${content}</span>`;
-      },
+    // ─── Attributor Marks (contribute attrs to parent element) ───────
+    attributors: {
+      color: (value) => ({
+        style: { color: String(value) },
+      }),
+      background: (value) => ({
+        style: { 'background-color': String(value) },
+      }),
+      font: (value) => ({
+        classes: [`${PREFIX}-font-${value}`],
+      }),
+      size: (value) => ({
+        classes: [`${PREFIX}-size-${value}`],
+      }),
     },
   };
 }

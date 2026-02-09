@@ -91,31 +91,119 @@ export interface ParserConfig {
 /**
  * Handles rendering of a block-level node (paragraph, header, list, etc.).
  *
+ * @typeParam Output - The rendered output type (string, ReactNode, etc.)
+ * @typeParam Attrs - The collected attribute type (defined by the renderer)
+ *
  * @param node - The AST node being rendered
  * @param childrenOutput - The already-rendered children content
+ * @param resolvedAttrs - Pre-computed attributes from block attribute resolvers
  * @returns The rendered output for this block
  */
-export type BlockHandler<Output> = (node: TNode, childrenOutput: Output) => Output;
+export type BlockHandler<Output, Attrs = unknown> = (
+  node: TNode,
+  childrenOutput: Output,
+  resolvedAttrs: Attrs,
+) => Output;
 
 /**
- * Handles rendering of an inline mark (bold, italic, link, etc.).
+ * Declarative descriptor for simple blocks that follow the pattern
+ * `<tag [attrs]>{children || emptyContent}</tag>`.
+ *
+ * The renderer auto-applies resolved attributes and handles empty content.
+ */
+export interface BlockDescriptor {
+  /** The tag name, or a function that resolves it from the node */
+  tag: string | ((node: TNode) => string);
+  /** Whether the tag is self-closing (e.g. `<br>`, `<hr>`). Defaults to false. */
+  selfClosing?: boolean;
+}
+
+/**
+ * Handles rendering of an inline mark (bold, italic, link, etc.)
+ * that creates a wrapper element.
+ *
+ * @typeParam Output - The rendered output type (string, ReactNode, etc.)
+ * @typeParam Attrs - The collected attribute type (defined by the renderer)
  *
  * @param content - The already-rendered inner content
  * @param value - The attribute value (e.g. href for links, color hex for color)
  * @param node - The full AST node for additional context
+ * @param collectedAttrs - Attributes collected from attributor marks.
+ *   Only provided to the **innermost** element mark.
  * @returns The wrapped/decorated output
  */
-export type MarkHandler<Output> = (content: Output, value: unknown, node: TNode) => Output;
+export type MarkHandler<Output, Attrs = unknown> = (
+  content: Output,
+  value: unknown,
+  node: TNode,
+  collectedAttrs?: Attrs,
+) => Output;
+
+/**
+ * Declarative descriptor for simple marks that just wrap content in a tag.
+ * The renderer auto-handles collected attrs injection.
+ *
+ * @example
+ * ```ts
+ * const boldMark: SimpleTagMark = { tag: 'strong' };
+ * const scriptMark: SimpleTagMark = { tag: (v) => v === 'super' ? 'sup' : 'sub' };
+ * ```
+ */
+export interface SimpleTagMark {
+  /** The tag name, or a function that resolves it from the mark value */
+  tag: string | ((value: unknown) => string);
+}
+
+/**
+ * An inline attributor mark — contributes renderer-specific attributes
+ * to the nearest parent element mark instead of creating a wrapper element.
+ *
+ * Mirrors Quill's Parchment Attributor concept.
+ *
+ * @typeParam Attrs - The collected attribute type (defined by the renderer)
+ *
+ * @example
+ * ```ts
+ * // For an HTML renderer where Attrs = ResolvedAttrs:
+ * const colorAttributor: AttributorHandler<ResolvedAttrs> = (value) => ({
+ *   style: { color: String(value) },
+ * });
+ * ```
+ */
+export type AttributorHandler<Attrs> = (value: unknown, node: TNode) => Attrs;
+
+/**
+ * Resolves block-level attributes from a node. Multiple resolvers
+ * can be composed, and their results are merged by the renderer.
+ *
+ * @typeParam Attrs - The collected attribute type (defined by the renderer)
+ *
+ * @example
+ * ```ts
+ * const layoutResolver: BlockAttributeResolver<ResolvedAttrs> = (node) => ({
+ *   classes: getLayoutClasses(node, 'ql'),
+ * });
+ * ```
+ */
+export type BlockAttributeResolver<Attrs> = (node: TNode) => Attrs;
 
 /**
  * Configuration for a renderer — maps node types to block handlers
  * and attribute names to mark handlers.
+ *
+ * @typeParam Output - The rendered output type (string, ReactNode, etc.)
+ * @typeParam Attrs - The collected attribute type (defined by the renderer).
+ *   Defaults to `unknown` for renderers that don't use attributors.
  */
-export interface RendererConfig<Output> {
+export interface RendererConfig<Output, Attrs = unknown> {
   /** How to render block-level nodes (paragraph, header, list, etc.) */
-  blocks: Record<string, BlockHandler<Output>>;
-  /** How to render inline marks (bold, link, color, etc.) */
-  marks: Record<string, MarkHandler<Output>>;
+  blocks: Record<string, BlockHandler<Output, Attrs> | BlockDescriptor>;
+  /** How to render inline element marks (bold, link, etc.) that create wrapper elements */
+  marks: Record<string, MarkHandler<Output, Attrs> | SimpleTagMark>;
+  /** Inline attributor marks that contribute attrs to the parent element */
+  attributors?: Record<string, AttributorHandler<Attrs>>;
   /** Optional mark nesting priorities. Higher value = wraps outer. */
   markPriorities?: Record<string, number>;
+  /** Block attribute resolvers — compute generic attrs for all blocks */
+  blockAttributeResolvers?: BlockAttributeResolver<Attrs>[];
 }

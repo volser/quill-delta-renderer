@@ -1,8 +1,11 @@
-import type { RendererConfig } from '../../core/ast-types';
+import type { BlockDescriptor, RendererConfig, TNode } from '../../core/ast-types';
 import { BaseRenderer } from '../../core/base-renderer';
 
 /**
  * Renders an AST into Markdown text.
+ *
+ * Markdown has no concept of inline attributes (styles/classes),
+ * so this renderer uses `unknown` for the Attrs type parameter.
  *
  * @example
  * ```ts
@@ -38,8 +41,8 @@ export class MarkdownRenderer extends BaseRenderer<string> {
       },
 
       marks: {
-        bold: (content) => `**${content}**`,
-        italic: (content) => `_${content}_`,
+        bold: { tag: 'strong' }, // TODO: use markdown ** when rendering
+        italic: { tag: 'em' }, // TODO: use markdown _ when rendering
         strike: (content) => `~~${content}~~`,
         code: (content) => `\`${content}\``,
 
@@ -60,5 +63,38 @@ export class MarkdownRenderer extends BaseRenderer<string> {
   protected renderText(text: string): string {
     // TODO: Escape markdown special characters if needed
     return text;
+  }
+
+  protected emptyAttrs(): unknown {
+    return undefined;
+  }
+
+  protected mergeAttrs(_target: unknown, source: unknown): unknown {
+    return source;
+  }
+
+  protected hasAttrs(_attrs: unknown): boolean {
+    return false;
+  }
+
+  protected wrapWithAttrs(content: string, _attrs: unknown): string {
+    // Markdown doesn't support inline styling — just return content
+    return content;
+  }
+
+  protected renderSimpleTag(_tag: string, content: string, _collectedAttrs?: unknown): string {
+    // TODO: Map HTML tags to markdown syntax
+    return content;
+  }
+
+  protected renderBlockFromDescriptor(
+    descriptor: BlockDescriptor,
+    _node: TNode,
+    childrenOutput: string,
+    _resolvedAttrs: unknown,
+  ): string {
+    // TODO: Map block descriptors to markdown syntax
+    const tag = typeof descriptor.tag === 'function' ? descriptor.tag(_node) : descriptor.tag;
+    return `<${tag}>${childrenOutput}</${tag}>`;
   }
 }

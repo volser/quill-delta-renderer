@@ -71,14 +71,14 @@ describe('QuillHtmlRenderer integration: inline marks', () => {
     const html = renderDelta({
       ops: [{ insert: 'red', attributes: { color: '#e60000' } }, { insert: '\n' }],
     });
-    expect(html).toBe('<p><span style="color: #e60000">red</span></p>');
+    expect(html).toBe('<p><span style="color:#e60000">red</span></p>');
   });
 
   it('should render background-color as inline style', () => {
     const html = renderDelta({
       ops: [{ insert: 'highlight', attributes: { background: '#ffebcc' } }, { insert: '\n' }],
     });
-    expect(html).toBe('<p><span style="background-color: #ffebcc">highlight</span></p>');
+    expect(html).toBe('<p><span style="background-color:#ffebcc">highlight</span></p>');
   });
 
   it('should render font as ql-font class', () => {
