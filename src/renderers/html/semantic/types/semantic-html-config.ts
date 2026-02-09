@@ -111,6 +111,31 @@ export interface SemanticHtmlConfig {
   /** Provide custom CSS styles for a node. */
   customCssStyles?: (node: TNode) => string | string[] | undefined;
 
+  // ─── Code Block Options ────────────────────────────────────────────────
+
+  /**
+   * Whether to add the `ql-syntax` class to code blocks.
+   * When `true`, renders `<pre class="ql-syntax">`.
+   * When `false`, renders `<pre>` (matching quill-delta-to-html).
+   * Default: `false`
+   */
+  codeSyntaxClass?: boolean;
+
+  // ─── Image Options ────────────────────────────────────────────────────
+
+  /**
+   * Whether to add the `ql-image` CSS class to image elements.
+   * Default: `true` (matching quill-delta-to-html)
+   */
+  imageClass?: boolean;
+
+  /**
+   * Whether to preserve the `alt` attribute on images.
+   * quill-delta-to-html drops `alt`; set to `true` to keep it.
+   * Default: `false`
+   */
+  preserveImageAlt?: boolean;
+
   // ─── Rendering Hooks ──────────────────────────────────────────────────
 
   /**

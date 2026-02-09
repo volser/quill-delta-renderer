@@ -121,13 +121,17 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
 
       'code-block-container': (node) => {
         const { language, lines } = resolveCodeBlockLines(node);
-        const className = buildCodeBlockClassName(language, cfg.classPrefix);
 
         const escapedLines = cfg.encodeHtml ? lines.map((line) => escapeHtml(line)) : lines;
         const content = escapedLines.join('\n');
 
         const tag = cfg.customTag?.('code-block', node) ?? 'pre';
-        const attrs: Record<string, string> = { class: className };
+        const attrs: Record<string, string> = {};
+        if (cfg.codeSyntaxClass) {
+          attrs.class = buildCodeBlockClassName(language, cfg.classPrefix);
+        } else if (language) {
+          attrs.class = `language-${language}`;
+        }
         if (language) attrs['data-language'] = language;
 
         return `<${tag}${buildAttrString(attrs)}>${content}</${tag}>`;
@@ -170,13 +174,20 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         const tag = cfg.customTag?.('code-block', node) ?? 'pre';
         const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
 
+        const extraClasses: string[] = [];
+        if (cfg.codeSyntaxClass) {
+          extraClasses.push(meta.className);
+        } else if (meta.language) {
+          extraClasses.push(`language-${meta.language}`);
+        }
+
         const extraAttrs: Record<string, string> = {};
         if (meta.language) {
           extraAttrs['data-language'] = meta.language;
         }
 
         const content = children || '<br/>';
-        const attrStr = buildBlockAttrs(node, cfg, [meta.className], undefined, extraAttrs);
+        const attrStr = buildBlockAttrs(node, cfg, extraClasses, undefined, extraAttrs);
         return `<${tag}${attrStr}>${content}</${tag}>`;
       }),
 
@@ -231,10 +242,14 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         const src = sanitizeUrl(img.src, cfg);
         if (!src) return '';
 
-        const imgAttrMap: Record<string, string> = {
-          src: encodeText(src, cfg),
-          alt: encodeText(img.alt, cfg),
-        };
+        const imgAttrMap: Record<string, string> = {};
+        if (cfg.imageClass) {
+          imgAttrMap.class = `${cfg.classPrefix}-image`;
+        }
+        imgAttrMap.src = encodeText(src, cfg);
+        if (cfg.preserveImageAlt && img.alt) {
+          imgAttrMap.alt = encodeText(img.alt, cfg);
+        }
         if (img.width) imgAttrMap.width = encodeText(img.width, cfg);
         if (img.height) imgAttrMap.height = encodeText(img.height, cfg);
 

@@ -42,9 +42,7 @@ describe('SemanticHtmlRenderer integration: blocks', () => {
     const html = renderDelta({
       ops: [{ insert: 'const x = 1;' }, { insert: '\n', attributes: { 'code-block': true } }],
     });
-    expect(html).toContain('<pre');
-    expect(html).toContain('class="ql-syntax"');
-    expect(html).toContain('const x = 1;');
+    expect(html).toBe('<pre>const x = 1;</pre>');
   });
 
   it('should render a code block with data-language', () => {
@@ -131,7 +129,7 @@ describe('SemanticHtmlRenderer integration: code-block-container (via parseQuill
         { insert: '\n', attributes: { 'code-block': 'javascript' } },
       ],
     });
-    expect(html).toContain('class="ql-syntax language-javascript"');
+    expect(html).toContain('class="language-javascript"');
     expect(html).toContain('data-language="javascript"');
     expect(html).toContain('const x = 1;\nconst y = 2;');
   });

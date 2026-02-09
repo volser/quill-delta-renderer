@@ -21,6 +21,9 @@ export interface ResolvedConfig {
   linkTarget: string;
   linkRel: string | undefined;
   encodeHtml: boolean;
+  codeSyntaxClass: boolean;
+  imageClass: boolean;
+  preserveImageAlt: boolean;
   urlSanitizer: ((url: string) => string | undefined) | undefined;
   customTag: ((format: string, node: TNode) => string | undefined) | undefined;
   customTagAttributes: ((node: TNode) => Record<string, string> | undefined) | undefined;

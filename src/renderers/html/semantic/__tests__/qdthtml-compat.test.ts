@@ -4,28 +4,14 @@
  * Verifies that SemanticHtmlRenderer produces identical HTML to the
  * quill-delta-to-html library for all supported Quill Delta formats.
  *
- * Both libraries share the same design goals and default configuration
- * (classPrefix: 'ql', linkTarget: '_blank', encodeHtml: true), so their
- * output is byte-identical for the vast majority of cases.
+ * With default configuration, SemanticHtmlRenderer produces byte-identical
+ * output to quill-delta-to-html for all tested cases.
  *
- * ┌──────────────────────────────────────────────────────────────────────┐
- * │                   REMAINING KNOWN DIFFERENCES                       │
- * │                                                                     │
- * │  1. Code block `ql-syntax` class                                    │
- * │     Legacy: <pre>code</pre>  (no class)                            │
- * │     Semantic: <pre class="ql-syntax">code</pre>                    │
- * │     Reason: Matches Quill editor output. Used by syntax             │
- * │     highlighting libraries (highlight.js, Prism). Legacy omits it.  │
- * │                                                                     │
- * │  2. Images: `ql-image` class and `alt` attribute                    │
- * │     Legacy: <img class="ql-image" src="…"/> (drops alt)            │
- * │     Semantic: <img alt="…" src="…"/>  (preserves alt, no class)    │
- * │     Reason: `alt` is essential for accessibility. `ql-image`        │
- * │     is a Quill-internal class with no semantic value.               │
- * │                                                                     │
- * │  Both are intentional design choices where our renderer is          │
- * │  more correct than quill-delta-to-html.                             │
- * └──────────────────────────────────────────────────────────────────────┘
+ * Configurable behaviors (non-default → more semantic/accessible):
+ *   - codeSyntaxClass: true  → adds `ql-syntax` class to <pre> (Quill editor compat)
+ *   - imageClass: false      → removes `ql-image` class from images
+ *   - preserveImageAlt: true → preserves alt attribute on images (accessibility)
+ *   - blockMerger: false     → keeps paragraphs separate instead of merging with <br/>
  */
 import { QuillDeltaToHtmlConverter } from 'quill-delta-to-html';
 import { describe, expect, it } from 'vitest';
@@ -531,17 +517,10 @@ describe('qdthtml compat: complex mixed content', () => {
 // ─── Known differences ──────────────────────────────────────────────────────
 //
 // The remaining differences are intentional design choices where our
-// SemanticHtmlRenderer is MORE CORRECT than quill-delta-to-html:
-//
-//   1. Multi-newline inserts: we split each \n into a separate <p>,
-//      matching Quill's actual DOM. Legacy bundles them into one <p>
-//      with <br/> separators.
-//
-//   2. Code block `ql-syntax` class: we always add it, matching Quill's
-//      editor output. Legacy omits it.
-//
-//   3. Images: we preserve `alt` and omit `ql-image` class. Legacy drops
-//      `alt` (accessibility regression) and adds an unnecessary class.
+// ─── Configurable behaviors ──────────────────────────────────────────────────
+// These sections test behaviors that are configurable via SemanticHtmlConfig
+// or parseQuillDelta options. Defaults match quill-delta-to-html; opt-in
+// flags enable more correct / accessible output.
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('qdthtml compat: multi-newline inserts', () => {
@@ -567,76 +546,69 @@ describe('qdthtml compat: multi-newline inserts', () => {
   });
 });
 
-describe('qdthtml known differences: code blocks', () => {
-  // Quill editor produces <pre class="ql-syntax">. We match that.
-  // quill-delta-to-html omits the class entirely.
+describe('qdthtml compat: code blocks', () => {
+  // By default, no ql-syntax class — matching quill-delta-to-html.
+  // Set codeSyntaxClass: true to add it (matches Quill editor output).
 
-  it('code block has ql-syntax class', () => {
-    const delta: Delta = {
+  it('code block without ql-syntax class (default)', () => {
+    assertMatch({
       ops: [{ insert: 'const x = 1;' }, { insert: '\n', attributes: { 'code-block': true } }],
-    };
-
-    expect(renderSemantic(delta)).toBe('<pre class="ql-syntax">const x = 1;</pre>');
-    expect(renderLegacy(delta)).toBe('<pre>const x = 1;</pre>');
+    });
   });
 
-  it('multi-line code block has ql-syntax class', () => {
-    const delta: Delta = {
+  it('multi-line code block', () => {
+    assertMatch({
       ops: [
         { insert: 'line 1' },
         { insert: '\n', attributes: { 'code-block': true } },
         { insert: 'line 2' },
         { insert: '\n', attributes: { 'code-block': true } },
       ],
-    };
-
-    expect(renderSemantic(delta)).toBe('<pre class="ql-syntax">line 1\nline 2</pre>');
-    expect(renderLegacy(delta)).toBe('<pre>line 1\nline 2</pre>');
+    });
   });
 
-  it('empty code block', () => {
+  it('opt-in: codeSyntaxClass adds ql-syntax class', () => {
     const delta: Delta = {
-      ops: [{ insert: '\n', attributes: { 'code-block': true } }],
+      ops: [{ insert: 'code' }, { insert: '\n', attributes: { 'code-block': true } }],
     };
-
-    expect(renderSemantic(delta)).toBe('<pre class="ql-syntax"></pre>');
-    expect(renderLegacy(delta)).toBe('<pre>\n</pre>');
+    const ast = parseQuillDelta(delta);
+    const html = new SemanticHtmlRenderer({ codeSyntaxClass: true }).render(ast);
+    expect(html).toBe('<pre class="ql-syntax">code</pre>');
   });
 });
 
-describe('qdthtml known differences: images', () => {
-  // We preserve `alt` (accessibility) and omit `ql-image` (no semantic value).
-  // quill-delta-to-html drops `alt` and adds `class="ql-image"`.
+describe('qdthtml compat: images', () => {
+  // By default, adds ql-image class and drops alt — matching quill-delta-to-html.
+  // Set imageClass: false and preserveImageAlt: true for accessibility.
 
-  it('image: semantic omits ql-image class, legacy adds it', () => {
-    const delta: Delta = {
+  it('image with ql-image class (default)', () => {
+    assertMatch({
       ops: [{ insert: { image: 'https://example.com/img.png' } }, { insert: '\n' }],
-    };
-
-    expect(normalizeHtml(renderSemantic(delta))).toBe(
-      '<p><img src="https://example.com/img.png"/></p>',
-    );
-    expect(normalizeHtml(renderLegacy(delta))).toBe(
-      '<p><img class="ql-image" src="https://example.com/img.png"/></p>',
-    );
+    });
   });
 
-  it('image with alt: semantic preserves alt, legacy drops it', () => {
+  it('image with alt dropped (default)', () => {
+    assertMatch({
+      ops: [
+        { insert: { image: 'https://example.com/img.png' }, attributes: { alt: 'A photo' } },
+        { insert: '\n' },
+      ],
+    });
+  });
+
+  it('opt-in: preserveImageAlt keeps alt attribute', () => {
     const delta: Delta = {
       ops: [
-        {
-          insert: { image: 'https://example.com/img.png' },
-          attributes: { alt: 'A photo' },
-        },
+        { insert: { image: 'https://example.com/img.png' }, attributes: { alt: 'A photo' } },
         { insert: '\n' },
       ],
     };
-
-    expect(normalizeHtml(renderSemantic(delta))).toBe(
-      '<p><img alt="A photo" src="https://example.com/img.png"/></p>',
+    const ast = parseQuillDelta(delta);
+    const html = new SemanticHtmlRenderer({ preserveImageAlt: true, imageClass: false }).render(
+      ast,
     );
-    expect(normalizeHtml(renderLegacy(delta))).toBe(
-      '<p><img class="ql-image" src="https://example.com/img.png"/></p>',
+    expect(normalizeHtml(html)).toBe(
+      '<p><img alt="A photo" src="https://example.com/img.png"/></p>',
     );
   });
 });

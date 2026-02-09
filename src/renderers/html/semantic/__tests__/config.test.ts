@@ -74,10 +74,10 @@ describe('SemanticHtmlRenderer integration: config', () => {
       expect(html).toContain('class="noz-formula"');
     });
 
-    it('should use custom class prefix for code-block', () => {
+    it('should use custom class prefix for code-block with codeSyntaxClass', () => {
       const html = renderDelta(
         { ops: [{ insert: 'code' }, { insert: '\n', attributes: { 'code-block': true } }] },
-        { classPrefix: 'noz' },
+        { classPrefix: 'noz', codeSyntaxClass: true },
       );
       expect(html).toContain('class="noz-syntax"');
     });
