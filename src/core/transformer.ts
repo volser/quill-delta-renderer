@@ -12,14 +12,8 @@ import type { TNode, Transformer } from './ast-types';
  * const finalAst = applyTransformers(rawAst, [ListGrouper, TableGrouper]);
  * ```
  */
-export function applyTransformers(
-  root: TNode,
-  transformers: Transformer[],
-): TNode {
-  return transformers.reduce(
-    (currentRoot, transformer) => transformer(currentRoot),
-    root,
-  );
+export function applyTransformers(root: TNode, transformers: Transformer[]): TNode {
+  return transformers.reduce((currentRoot, transformer) => transformer(currentRoot), root);
 }
 
 /**
@@ -31,8 +25,6 @@ export function applyTransformers(
  * const finalAst = combined(rawAst);
  * ```
  */
-export function composeTransformers(
-  ...transformers: Transformer[]
-): Transformer {
+export function composeTransformers(...transformers: Transformer[]): Transformer {
   return (root: TNode) => applyTransformers(root, transformers);
 }

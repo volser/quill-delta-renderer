@@ -67,10 +67,7 @@ export type Transformer = (root: TNode) => TNode;
  * @param childrenOutput - The already-rendered children content
  * @returns The rendered output for this block
  */
-export type BlockHandler<Output> = (
-  node: TNode,
-  childrenOutput: Output,
-) => Output;
+export type BlockHandler<Output> = (node: TNode, childrenOutput: Output) => Output;
 
 /**
  * Handles rendering of an inline mark (bold, italic, link, etc.).
@@ -80,11 +77,7 @@ export type BlockHandler<Output> = (
  * @param node - The full AST node for additional context
  * @returns The wrapped/decorated output
  */
-export type MarkHandler<Output> = (
-  content: Output,
-  value: unknown,
-  node: TNode,
-) => Output;
+export type MarkHandler<Output> = (content: Output, value: unknown, node: TNode) => Output;
 
 /**
  * Configuration for a renderer — maps node types to block handlers

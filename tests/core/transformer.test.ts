@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { applyTransformers, composeTransformers } from '../../src/core/transformer';
+import { describe, expect, it } from 'vitest';
 import type { TNode, Transformer } from '../../src/core/ast-types';
+import { applyTransformers, composeTransformers } from '../../src/core/transformer';
 
 function makeRoot(children: TNode[]): TNode {
   return {

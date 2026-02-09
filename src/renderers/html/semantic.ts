@@ -21,7 +21,7 @@ const SEMANTIC_HTML_CONFIG: RendererConfig<string> = {
     },
 
     header: (node, children) => {
-      const level = node.attributes['header'] as number;
+      const level = node.attributes.header as number;
       const tag = `h${level}`;
       return `<${tag}>${children}</${tag}>`;
     },
@@ -39,14 +39,14 @@ const SEMANTIC_HTML_CONFIG: RendererConfig<string> = {
     },
 
     list: (node, children) => {
-      const listType = node.attributes['list'];
+      const listType = node.attributes.list;
       const tag = listType === 'ordered' ? 'ol' : 'ul';
       return `<${tag}>${children}</${tag}>`;
     },
 
     image: (node) => {
       const src = node.data as string;
-      const alt = (node.attributes['alt'] as string) ?? '';
+      const alt = (node.attributes.alt as string) ?? '';
       return `<img src="${escapeHtml(String(src))}" alt="${escapeHtml(alt)}" />`;
     },
 

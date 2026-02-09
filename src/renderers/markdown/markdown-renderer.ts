@@ -20,7 +20,7 @@ export class MarkdownRenderer extends BaseRenderer<string> {
         paragraph: (_node, children) => `${children}\n\n`,
 
         header: (node, children) => {
-          const level = node.attributes['header'] as number;
+          const level = node.attributes.header as number;
           const prefix = '#'.repeat(level);
           return `${prefix} ${children}\n\n`;
         },

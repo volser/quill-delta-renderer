@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { DeltaParser } from '../../src/core/parser';
+import { describe, expect, it } from 'vitest';
 import type { Delta, TNode } from '../../src/core/ast-types';
+import { DeltaParser } from '../../src/core/parser';
 
 describe('DeltaParser', () => {
   describe('basic text parsing', () => {
@@ -60,7 +60,7 @@ describe('DeltaParser', () => {
       const paragraph = ast.children[0]!;
 
       expect(paragraph.children).toHaveLength(2);
-      expect(paragraph.children[0]!.attributes['bold']).toBe(true);
+      expect(paragraph.children[0]!.attributes.bold).toBe(true);
       expect(paragraph.children[0]!.data).toBe('Hello ');
       expect(paragraph.children[1]!.data).toBe('world');
     });
@@ -79,35 +79,29 @@ describe('DeltaParser', () => {
       const ast = new DeltaParser(delta).toAST();
       const textNode = ast.children[0]!.children[0]!;
 
-      expect(textNode.attributes['bold']).toBe(true);
-      expect(textNode.attributes['italic']).toBe(true);
-      expect(textNode.attributes['color']).toBe('#ff0000');
+      expect(textNode.attributes.bold).toBe(true);
+      expect(textNode.attributes.italic).toBe(true);
+      expect(textNode.attributes.color).toBe('#ff0000');
     });
   });
 
   describe('block types', () => {
     it('should parse a header', () => {
       const delta: Delta = {
-        ops: [
-          { insert: 'Title' },
-          { insert: '\n', attributes: { header: 1 } },
-        ],
+        ops: [{ insert: 'Title' }, { insert: '\n', attributes: { header: 1 } }],
       };
 
       const ast = new DeltaParser(delta).toAST();
 
       expect(ast.children).toHaveLength(1);
       expect(ast.children[0]!.type).toBe('header');
-      expect(ast.children[0]!.attributes['header']).toBe(1);
+      expect(ast.children[0]!.attributes.header).toBe(1);
       expect(ast.children[0]!.children[0]!.data).toBe('Title');
     });
 
     it('should parse a blockquote', () => {
       const delta: Delta = {
-        ops: [
-          { insert: 'A quote' },
-          { insert: '\n', attributes: { blockquote: true } },
-        ],
+        ops: [{ insert: 'A quote' }, { insert: '\n', attributes: { blockquote: true } }],
       };
 
       const ast = new DeltaParser(delta).toAST();
@@ -117,10 +111,7 @@ describe('DeltaParser', () => {
 
     it('should parse a code block', () => {
       const delta: Delta = {
-        ops: [
-          { insert: 'const x = 1;' },
-          { insert: '\n', attributes: { 'code-block': true } },
-        ],
+        ops: [{ insert: 'const x = 1;' }, { insert: '\n', attributes: { 'code-block': true } }],
       };
 
       const ast = new DeltaParser(delta).toAST();
@@ -142,7 +133,7 @@ describe('DeltaParser', () => {
 
       expect(ast.children).toHaveLength(2);
       expect(ast.children[0]!.type).toBe('list-item');
-      expect(ast.children[0]!.attributes['list']).toBe('bullet');
+      expect(ast.children[0]!.attributes.list).toBe('bullet');
       expect(ast.children[1]!.type).toBe('list-item');
     });
   });
@@ -150,10 +141,7 @@ describe('DeltaParser', () => {
   describe('embeds', () => {
     it('should parse an image embed', () => {
       const delta: Delta = {
-        ops: [
-          { insert: { image: 'https://example.com/photo.jpg' } },
-          { insert: '\n' },
-        ],
+        ops: [{ insert: { image: 'https://example.com/photo.jpg' } }, { insert: '\n' }],
       };
 
       const ast = new DeltaParser(delta).toAST();
@@ -177,10 +165,7 @@ describe('DeltaParser', () => {
           ...child,
           children: child.children.map((textNode) => ({
             ...textNode,
-            data:
-              typeof textNode.data === 'string'
-                ? textNode.data.toUpperCase()
-                : textNode.data,
+            data: typeof textNode.data === 'string' ? textNode.data.toUpperCase() : textNode.data,
           })),
         })),
       });

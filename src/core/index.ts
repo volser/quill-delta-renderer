@@ -1,15 +1,15 @@
 export type {
+  Attributes,
+  BlockHandler,
   Delta,
   DeltaOp,
-  TNode,
-  Attributes,
-  Transformer,
-  RendererConfig,
-  BlockHandler,
   MarkHandler,
+  RendererConfig,
+  TNode,
+  Transformer,
 } from './ast-types';
 
 export { MARK_PRIORITIES } from './ast-types';
+export { BaseRenderer } from './base-renderer';
 export { DeltaParser } from './parser';
 export { applyTransformers, composeTransformers } from './transformer';
-export { BaseRenderer } from './base-renderer';

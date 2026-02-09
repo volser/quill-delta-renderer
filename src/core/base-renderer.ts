@@ -1,9 +1,4 @@
-import type {
-  TNode,
-  RendererConfig,
-  BlockHandler,
-  MarkHandler,
-} from './ast-types';
+import type { BlockHandler, MarkHandler, RendererConfig, TNode } from './ast-types';
 import { MARK_PRIORITIES } from './ast-types';
 
 /**
@@ -109,9 +104,7 @@ export abstract class BaseRenderer<Output> {
   }
 
   protected renderChildren(node: TNode): Output {
-    const renderedChildren = node.children.map((child) =>
-      this.renderNode(child),
-    );
+    const renderedChildren = node.children.map((child) => this.renderNode(child));
     return this.joinChildren(renderedChildren);
   }
 
@@ -136,9 +129,7 @@ export abstract class BaseRenderer<Output> {
     return output;
   }
 
-  private getApplicableMarks(
-    node: TNode,
-  ): Array<{
+  private getApplicableMarks(node: TNode): Array<{
     name: string;
     handler: MarkHandler<Output>;
     value: unknown;

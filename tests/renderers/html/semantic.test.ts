@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { Delta } from '../../../src/core/ast-types';
 import { DeltaParser } from '../../../src/core/parser';
 import { SemanticHtmlRenderer } from '../../../src/renderers/html/semantic';
-import type { Delta } from '../../../src/core/ast-types';
 
 function renderDelta(delta: Delta): string {
   const ast = new DeltaParser(delta).toAST();
@@ -21,10 +21,7 @@ describe('SemanticHtmlRenderer', () => {
 
     it('should render a header', () => {
       const html = renderDelta({
-        ops: [
-          { insert: 'Title' },
-          { insert: '\n', attributes: { header: 1 } },
-        ],
+        ops: [{ insert: 'Title' }, { insert: '\n', attributes: { header: 1 } }],
       });
 
       expect(html).toBe('<h1>Title</h1>');
@@ -33,10 +30,7 @@ describe('SemanticHtmlRenderer', () => {
     it('should render h2 through h6', () => {
       for (let level = 2; level <= 6; level++) {
         const html = renderDelta({
-          ops: [
-            { insert: `Heading ${level}` },
-            { insert: '\n', attributes: { header: level } },
-          ],
+          ops: [{ insert: `Heading ${level}` }, { insert: '\n', attributes: { header: level } }],
         });
 
         expect(html).toBe(`<h${level}>Heading ${level}</h${level}>`);
@@ -45,10 +39,7 @@ describe('SemanticHtmlRenderer', () => {
 
     it('should render a blockquote', () => {
       const html = renderDelta({
-        ops: [
-          { insert: 'A wise quote' },
-          { insert: '\n', attributes: { blockquote: true } },
-        ],
+        ops: [{ insert: 'A wise quote' }, { insert: '\n', attributes: { blockquote: true } }],
       });
 
       expect(html).toBe('<blockquote>A wise quote</blockquote>');
@@ -56,10 +47,7 @@ describe('SemanticHtmlRenderer', () => {
 
     it('should render a code block', () => {
       const html = renderDelta({
-        ops: [
-          { insert: 'const x = 1;' },
-          { insert: '\n', attributes: { 'code-block': true } },
-        ],
+        ops: [{ insert: 'const x = 1;' }, { insert: '\n', attributes: { 'code-block': true } }],
       });
 
       expect(html).toBe('<pre><code>const x = 1;</code></pre>');
@@ -69,10 +57,7 @@ describe('SemanticHtmlRenderer', () => {
   describe('inline formatting (marks)', () => {
     it('should render bold text', () => {
       const html = renderDelta({
-        ops: [
-          { insert: 'bold', attributes: { bold: true } },
-          { insert: '\n' },
-        ],
+        ops: [{ insert: 'bold', attributes: { bold: true } }, { insert: '\n' }],
       });
 
       expect(html).toBe('<p><strong>bold</strong></p>');
@@ -80,10 +65,7 @@ describe('SemanticHtmlRenderer', () => {
 
     it('should render italic text', () => {
       const html = renderDelta({
-        ops: [
-          { insert: 'italic', attributes: { italic: true } },
-          { insert: '\n' },
-        ],
+        ops: [{ insert: 'italic', attributes: { italic: true } }, { insert: '\n' }],
       });
 
       expect(html).toBe('<p><em>italic</em></p>');
@@ -100,22 +82,15 @@ describe('SemanticHtmlRenderer', () => {
         ],
       });
 
-      expect(html).toBe(
-        '<p><a href="https://example.com">click me</a></p>',
-      );
+      expect(html).toBe('<p><a href="https://example.com">click me</a></p>');
     });
 
     it('should render colored text', () => {
       const html = renderDelta({
-        ops: [
-          { insert: 'red text', attributes: { color: '#ff0000' } },
-          { insert: '\n' },
-        ],
+        ops: [{ insert: 'red text', attributes: { color: '#ff0000' } }, { insert: '\n' }],
       });
 
-      expect(html).toBe(
-        '<p><span style="color: #ff0000">red text</span></p>',
-      );
+      expect(html).toBe('<p><span style="color: #ff0000">red text</span></p>');
     });
 
     it('should nest marks according to priority (link outermost)', () => {
@@ -130,9 +105,7 @@ describe('SemanticHtmlRenderer', () => {
       });
 
       // link (priority 100) should wrap bold (priority 10)
-      expect(html).toBe(
-        '<p><a href="https://example.com"><strong>styled link</strong></a></p>',
-      );
+      expect(html).toBe('<p><a href="https://example.com"><strong>styled link</strong></a></p>');
     });
   });
 
@@ -170,26 +143,21 @@ describe('SemanticHtmlRenderer', () => {
         ops: [{ insert: '<script>alert("xss")</script>\n' }],
       });
 
-      expect(html).toBe(
-        '<p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p>',
-      );
+      expect(html).toBe('<p>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</p>');
     });
   });
 
   describe('extendBlock / extendMark', () => {
     it('should allow overriding block handlers at runtime', () => {
       const delta: Delta = {
-        ops: [
-          { insert: 'Title' },
-          { insert: '\n', attributes: { header: 1 } },
-        ],
+        ops: [{ insert: 'Title' }, { insert: '\n', attributes: { header: 1 } }],
       };
 
       const ast = new DeltaParser(delta).toAST();
       const renderer = new SemanticHtmlRenderer();
 
       renderer.extendBlock('header', (node, children) => {
-        const level = node.attributes['header'] as number;
+        const level = node.attributes.header as number;
         return `<h${level} class="custom">${children}</h${level}>`;
       });
 
@@ -200,10 +168,7 @@ describe('SemanticHtmlRenderer', () => {
 
     it('should allow overriding mark handlers at runtime', () => {
       const delta: Delta = {
-        ops: [
-          { insert: 'bold', attributes: { bold: true } },
-          { insert: '\n' },
-        ],
+        ops: [{ insert: 'bold', attributes: { bold: true } }, { insert: '\n' }],
       };
 
       const ast = new DeltaParser(delta).toAST();

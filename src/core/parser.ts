@@ -1,4 +1,4 @@
-import type { Delta, TNode, Transformer, Attributes } from './ast-types';
+import type { Attributes, Delta, TNode, Transformer } from './ast-types';
 
 /**
  * Known block-level attributes in Quill.
@@ -88,12 +88,7 @@ export class DeltaParser {
    * Parse a text insert operation.
    * Text may contain multiple newlines — each one potentially terminates a block.
    */
-  private parseTextOp(
-    text: string,
-    attrs: Attributes,
-    inlineBuffer: TNode[],
-    root: TNode,
-  ): void {
+  private parseTextOp(text: string, attrs: Attributes, inlineBuffer: TNode[], root: TNode): void {
     const lines = text.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
@@ -129,14 +124,14 @@ export class DeltaParser {
       if (BLOCK_ATTRIBUTES.has(key)) {
         if (key === 'header') {
           blockType = 'header';
-          blockAttrs['header'] = value;
+          blockAttrs.header = value;
         } else if (key === 'blockquote') {
           blockType = 'blockquote';
         } else if (key === 'code-block') {
           blockType = 'code-block';
         } else if (key === 'list') {
           blockType = 'list-item';
-          blockAttrs['list'] = value; // 'ordered' | 'bullet'
+          blockAttrs.list = value; // 'ordered' | 'bullet'
         } else {
           // align, direction, indent — keep as attributes on the block
           blockAttrs[key] = value;
@@ -165,10 +160,7 @@ export class DeltaParser {
     };
   }
 
-  private parseEmbedOp(
-    insert: Record<string, unknown>,
-    attrs: Attributes,
-  ): TNode {
+  private parseEmbedOp(insert: Record<string, unknown>, attrs: Attributes): TNode {
     // Embeds are stored as { image: "url" } or { video: "url" }, etc.
     const [embedType, embedData] = Object.entries(insert)[0] ?? ['unknown', null];
 
@@ -181,11 +173,7 @@ export class DeltaParser {
     };
   }
 
-  private createBlock(
-    type: string,
-    attrs: Attributes,
-    children: TNode[],
-  ): TNode {
+  private createBlock(type: string, attrs: Attributes, children: TNode[]): TNode {
     return {
       type,
       attributes: attrs,
@@ -195,9 +183,6 @@ export class DeltaParser {
   }
 
   private applyTransformers(root: TNode): TNode {
-    return this.transformers.reduce(
-      (currentRoot, transformer) => transformer(currentRoot),
-      root,
-    );
+    return this.transformers.reduce((currentRoot, transformer) => transformer(currentRoot), root);
   }
 }
