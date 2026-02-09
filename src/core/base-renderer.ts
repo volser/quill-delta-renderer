@@ -34,7 +34,7 @@ function isBlockDescriptor<Output, Attrs>(
  * - Mark (inline formatting) priority sorting with attributor support
  * - Block attribute resolution
  * - Declarative block/mark descriptors
- * - Runtime extension via `extendBlock()` / `extendMark()`
+ * - Immutable extension via `withBlock()` / `withMark()` / `withAttributor()`
  *
  * Subclasses must implement:
  * - `joinChildren()` — how to combine rendered children into a single output
@@ -73,40 +73,72 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
     return this.renderNode(node);
   }
 
+  // ─── Immutable Extension API ────────────────────────────────────────
+
   /**
-   * Override or add a block handler at runtime.
+   * Return a shallow clone of this renderer with a block handler added or replaced.
+   * The original renderer is not modified.
    */
-  extendBlock(type: string, handler: BlockHandler<Output, Attrs> | BlockDescriptor): void {
-    this.blocks[type] = handler;
+  withBlock(type: string, handler: BlockHandler<Output, Attrs> | BlockDescriptor): this {
+    const clone = this.shallowClone();
+    clone.blocks = { ...this.blocks, [type]: handler };
+    return clone;
   }
 
   /**
-   * Override or add a mark handler at runtime.
+   * Return a shallow clone of this renderer with a mark handler added or replaced.
+   * The original renderer is not modified.
    */
-  extendMark(name: string, handler: MarkHandler<Output, Attrs> | SimpleTagMark): void {
-    this.marks[name] = handler;
+  withMark(name: string, handler: MarkHandler<Output, Attrs> | SimpleTagMark): this {
+    const clone = this.shallowClone();
+    clone.marks = { ...this.marks, [name]: handler };
+    return clone;
   }
 
   /**
-   * Override or add an attributor at runtime.
+   * Return a shallow clone of this renderer with an attributor added or replaced.
+   * The original renderer is not modified.
    */
-  extendAttributor(name: string, handler: AttributorHandler<Attrs>): void {
-    this.attributors[name] = handler;
+  withAttributor(name: string, handler: AttributorHandler<Attrs>): this {
+    const clone = this.shallowClone();
+    clone.attributors = { ...this.attributors, [name]: handler };
+    return clone;
   }
 
   /**
-   * Set or override the priority for a mark.
-   * Higher priority = wraps outer (applied first).
+   * Return a shallow clone of this renderer with a mark priority set or replaced.
+   * The original renderer is not modified.
    */
-  setMarkPriority(name: string, priority: number): void {
-    this.markPriorities[name] = priority;
+  withMarkPriority(name: string, priority: number): this {
+    const clone = this.shallowClone();
+    clone.markPriorities = { ...this.markPriorities, [name]: priority };
+    return clone;
   }
 
   /**
-   * Add a block attribute resolver at runtime.
+   * Return a shallow clone of this renderer with an additional block attribute resolver.
+   * The original renderer is not modified.
    */
-  addBlockAttributeResolver(resolver: (node: TNode) => Attrs): void {
-    this.blockAttributeResolvers.push(resolver);
+  withBlockAttributeResolver(resolver: (node: TNode) => Attrs): this {
+    const clone = this.shallowClone();
+    clone.blockAttributeResolvers = [...this.blockAttributeResolvers, resolver];
+    return clone;
+  }
+
+  /**
+   * Create a shallow clone of this renderer instance, preserving the
+   * prototype chain so that subclass overrides remain intact.
+   */
+  private shallowClone(): this {
+    const clone = Object.create(Object.getPrototypeOf(this)) as this;
+    Object.assign(clone, this);
+    // Deep-copy mutable collections so the clone doesn't share references
+    clone.blocks = { ...this.blocks };
+    clone.marks = { ...this.marks };
+    clone.attributors = { ...this.attributors };
+    clone.markPriorities = { ...this.markPriorities };
+    clone.blockAttributeResolvers = [...this.blockAttributeResolvers];
+    return clone;
   }
 
   // ─── Abstract Methods (must be implemented by subclasses) ───────────────

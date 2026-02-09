@@ -29,39 +29,28 @@ export type {
   BlockHandler,
   Delta,
   DeltaOp,
+  KnownNodeType,
   MarkHandler,
   ParserConfig,
   RendererConfig,
   TNode,
   Transformer,
 } from './core/ast-types';
+export { isEmbedNode, isTextNode } from './core/ast-types';
 export { BaseRenderer } from './core/base-renderer';
 export { DeltaParser, parseDelta } from './core/parser';
 export type { SimpleRendererConfig } from './core/simple-renderer';
 export { SimpleRenderer } from './core/simple-renderer';
 export { applyTransformers, composeTransformers } from './core/transformer';
 
-// Renderers
-export {
-  BaseHtmlRenderer,
-  escapeHtml,
-  serializeResolvedAttrs,
-} from './renderers/html/base-html-renderer';
-export type { ResolvedAttrs } from './renderers/html/common/resolved-attrs';
-export {
-  EMPTY_RESOLVED_ATTRS,
-  hasResolvedAttrs,
-  mergeResolvedAttrs,
-} from './renderers/html/common/resolved-attrs';
-export { QuillHtmlRenderer } from './renderers/html/quill/quill-html-renderer';
-export { DEFAULT_INLINE_STYLES } from './renderers/html/semantic/consts/default-inline-styles';
-export { SemanticHtmlRenderer } from './renderers/html/semantic/semantic-html-renderer';
-export type {
-  AfterRenderCallback,
-  BeforeRenderCallback,
-  CustomBlotRenderer,
-  InlineStyleConverter,
-  InlineStyleOverrides,
-  RenderGroupType,
-  SemanticHtmlConfig,
-} from './renderers/html/semantic/types/semantic-html-config';
+// ─── Renderers ─────────────────────────────────────────────────────────────
+//
+// Renderers are NOT re-exported from the root barrel to enable proper
+// tree-shaking. Import them from their dedicated subpath exports:
+//
+//   import { SemanticHtmlRenderer, QuillHtmlRenderer } from 'quill-delta-render/renderers/html';
+//   import { ReactRenderer }          from 'quill-delta-render/renderers/react';
+//   import { MarkdownRenderer }       from 'quill-delta-render/renderers/markdown';
+//
+// Shared HTML utilities (escapeHtml, ResolvedAttrs, etc.) are available from
+// the 'quill-delta-render/renderers/html' subpath as well.

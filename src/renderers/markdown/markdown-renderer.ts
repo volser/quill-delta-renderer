@@ -1,8 +1,8 @@
 import type { TNode } from '../../core/ast-types';
 import { SimpleRenderer } from '../../core/simple-renderer';
+import { resolveCodeBlockLines } from '../common/resolve-code-block-lines';
 import { buildRendererConfig } from './functions/build-renderer-config';
 import { padListItemContent } from './functions/pad-list-item-content';
-import { resolveCodeBlockLanguage } from './functions/resolve-code-block-language';
 import { resolveConfig } from './functions/resolve-config';
 import { resolveListType } from './functions/resolve-list-type';
 import type { MarkdownConfig, ResolvedMarkdownConfig } from './types/markdown-config';
@@ -17,8 +17,8 @@ import type { MarkdownConfig, ResolvedMarkdownConfig } from './types/markdown-co
  * Markdown has no concept of inline styling, so color, background, font,
  * size, and underline are silently ignored.
  *
- * The renderer is designed for extensibility — use `extendBlock()` and
- * `extendMark()` to add handlers for custom embed types (e.g. mentions,
+ * The renderer is designed for extensibility — use `withBlock()` and
+ * `withMark()` to add handlers for custom embed types (e.g. mentions,
  * link previews, formulas).
  *
  * @example
@@ -40,8 +40,7 @@ import type { MarkdownConfig, ResolvedMarkdownConfig } from './types/markdown-co
  * @example
  * ```ts
  * // Extend with custom embed
- * const renderer = new MarkdownRenderer();
- * renderer.extendBlock('user_mention', (node) => {
+ * const renderer = new MarkdownRenderer().withBlock('user_mention', (node) => {
  *   const data = node.data as Record<string, unknown>;
  *   return `[@${data.name}](#user_mention#${data.id})`;
  * });
@@ -90,13 +89,9 @@ export class MarkdownRenderer extends SimpleRenderer<string> {
   // ─── Code Blocks ──────────────────────────────────────────────────────────
 
   private renderCodeBlockContainer(node: TNode): string {
-    const firstChild = node.children[0];
-    const lang = firstChild ? resolveCodeBlockLanguage(firstChild) : '';
-
-    const lines = node.children.map((child) => {
-      return child.children.map((c) => String(c.data ?? '')).join('');
-    });
-
+    const { language, lines } = resolveCodeBlockLines(node);
+    // In Markdown, 'plain' means no language tag on the fence
+    const lang = language && language !== 'plain' ? language : '';
     return `${this.cfg.fenceChar}${lang}\n${lines.join('\n')}\n${this.cfg.fenceChar}`;
   }
 

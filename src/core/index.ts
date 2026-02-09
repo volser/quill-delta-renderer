@@ -4,12 +4,14 @@ export type {
   BlockHandler,
   Delta,
   DeltaOp,
+  KnownNodeType,
   MarkHandler,
   ParserConfig,
   RendererConfig,
   TNode,
   Transformer,
 } from './ast-types';
+export { isEmbedNode, isTextNode } from './ast-types';
 
 export { BaseRenderer } from './base-renderer';
 export { DeltaParser, parseDelta } from './parser';

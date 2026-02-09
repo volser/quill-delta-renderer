@@ -2,9 +2,8 @@ import { MarkdownRenderer } from '../markdown-renderer';
 import { d, renderDeltaWith } from './test-helpers';
 
 describe('MarkdownRenderer – extensibility', () => {
-  it('should support custom block handlers via extendBlock()', () => {
-    const renderer = new MarkdownRenderer();
-    renderer.extendBlock('user_mention', (node) => {
+  it('should support custom block handlers via withBlock()', () => {
+    const renderer = new MarkdownRenderer().withBlock('user_mention', (node) => {
       const data = node.data as Record<string, unknown>;
       return `[@${data.name}](#user_mention#${data.id})`;
     });
@@ -24,8 +23,7 @@ describe('MarkdownRenderer – extensibility', () => {
   });
 
   it('should support custom link_preview handler', () => {
-    const renderer = new MarkdownRenderer();
-    renderer.extendBlock('link_preview', (node) => {
+    const renderer = new MarkdownRenderer().withBlock('link_preview', (node) => {
       const data = node.data as Record<string, unknown>;
       const url = String(data?.url ?? '');
       return `[${url}](${url})`;
@@ -46,8 +44,7 @@ describe('MarkdownRenderer – extensibility', () => {
   });
 
   it('should support custom formula_bracket handler', () => {
-    const renderer = new MarkdownRenderer();
-    renderer.extendBlock('formula_bracket', (node) => {
+    const renderer = new MarkdownRenderer().withBlock('formula_bracket', (node) => {
       const data = node.data as Record<string, unknown>;
       return data?.bracketDirection === 'left' ? '(' : ')';
     });
@@ -65,9 +62,8 @@ describe('MarkdownRenderer – extensibility', () => {
     expect(rightBracket).toBe(')');
   });
 
-  it('should support custom mark handlers via extendMark()', () => {
-    const renderer = new MarkdownRenderer();
-    renderer.extendMark('highlight', (content) => `==${content}==`);
+  it('should support custom mark handlers via withMark()', () => {
+    const renderer = new MarkdownRenderer().withMark('highlight', (content) => `==${content}==`);
 
     const md = renderDeltaWith(
       d({ insert: 'important', attributes: { highlight: true } }, { insert: '\n' }),

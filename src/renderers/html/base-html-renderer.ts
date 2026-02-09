@@ -7,16 +7,21 @@ import {
   mergeResolvedAttrs,
 } from './common/resolved-attrs';
 
+/** Lookup table for HTML character escaping. */
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
 /**
  * Escape HTML special characters to prevent XSS.
+ * Uses a single-pass regex replacement for performance.
  */
 export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return str.replace(/[&<>"']/g, (ch) => HTML_ESCAPE_MAP[ch]!);
 }
 
 /**
@@ -36,12 +41,12 @@ export function serializeResolvedAttrs(resolved: ResolvedAttrs | undefined): str
   const parts: string[] = [];
 
   if (resolved.classes && resolved.classes.length > 0) {
-    parts.push(`class="${resolved.classes.join(' ')}"`);
+    parts.push(`class="${resolved.classes.map(escapeHtml).join(' ')}"`);
   }
 
   if (resolved.style && Object.keys(resolved.style).length > 0) {
     const styleStr = Object.entries(resolved.style)
-      .map(([k, v]) => `${k}:${v}`)
+      .map(([k, v]) => `${escapeHtml(k)}:${escapeHtml(v)}`)
       .join(';');
     parts.push(`style="${styleStr}"`);
   }
@@ -49,7 +54,7 @@ export function serializeResolvedAttrs(resolved: ResolvedAttrs | undefined): str
   if (resolved.attrs) {
     for (const [key, value] of Object.entries(resolved.attrs)) {
       if (value !== '') {
-        parts.push(`${key}="${value}"`);
+        parts.push(`${escapeHtml(key)}="${escapeHtml(value)}"`);
       }
     }
   }

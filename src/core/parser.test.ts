@@ -1,9 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import type { Delta, ParserConfig, TNode, Transformer } from './ast-types';
+import type { Delta, ParserConfig, Transformer } from './ast-types';
 import { DeltaParser, parseDelta } from './parser';
 
 /** Empty config — no block attributes, tests pure generic parsing. */
 const EMPTY_CONFIG: ParserConfig = { blockAttributes: {} };
+
+describe('parseDelta input validation', () => {
+  it('should throw TypeError for null delta', () => {
+    expect(() => parseDelta(null as unknown as Delta, EMPTY_CONFIG)).toThrow(TypeError);
+    expect(() => parseDelta(null as unknown as Delta, EMPTY_CONFIG)).toThrow(
+      'parseDelta: expected a Delta object with an ops array, received null',
+    );
+  });
+
+  it('should throw TypeError for undefined delta', () => {
+    expect(() => parseDelta(undefined as unknown as Delta, EMPTY_CONFIG)).toThrow(TypeError);
+    expect(() => parseDelta(undefined as unknown as Delta, EMPTY_CONFIG)).toThrow(
+      'parseDelta: expected a Delta object with an ops array, received undefined',
+    );
+  });
+
+  it('should throw TypeError when ops is not an array', () => {
+    expect(() => parseDelta({ ops: 'not-an-array' } as unknown as Delta, EMPTY_CONFIG)).toThrow(
+      TypeError,
+    );
+  });
+
+  it('should throw TypeError for an empty object', () => {
+    expect(() => parseDelta({} as unknown as Delta, EMPTY_CONFIG)).toThrow(TypeError);
+  });
+
+  it('should accept a valid delta with empty ops', () => {
+    const ast = parseDelta({ ops: [] }, EMPTY_CONFIG);
+    expect(ast.type).toBe('root');
+    expect(ast.children).toHaveLength(0);
+  });
+});
 
 describe('parseDelta (pure function)', () => {
   it('should produce the same result as DeltaParser for plain text', () => {

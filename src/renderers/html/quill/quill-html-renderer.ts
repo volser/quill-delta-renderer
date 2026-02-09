@@ -16,7 +16,7 @@ import { buildQuillConfig } from './functions/build-quill-config';
  * For a configurable HTML renderer (with custom class prefix, inline styles,
  * hooks, etc.), use `SemanticHtmlRenderer` instead.
  *
- * Use `extendBlock()` and `extendMark()` to override specific handlers
+ * Use `withBlock()` and `withMark()` to override specific handlers
  * without subclassing.
  *
  * @example

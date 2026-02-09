@@ -1,16 +1,16 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../common/default-mark-priorities';
-import type { RendererConfig } from '../../../core/ast-types';
+import type { SimpleRendererConfig } from '../../../core/simple-renderer';
 import type { ResolvedMarkdownConfig } from '../types/markdown-config';
 import { resolveCodeBlockLanguage } from './resolve-code-block-language';
 
 /**
- * Build a full `RendererConfig<string>` from the resolved markdown config.
+ * Build a full `SimpleRendererConfig<string>` from the resolved markdown config.
  *
  * Defines all block handlers (paragraph, header, blockquote, code-block,
  * image, video, divider, formula, table pass-throughs) and mark handlers
  * (bold, italic, strike, code, link + passthrough for unsupported marks).
  */
-export function buildRendererConfig(cfg: ResolvedMarkdownConfig): RendererConfig<string> {
+export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRendererConfig<string> {
   return {
     markPriorities: DEFAULT_MARK_PRIORITIES,
 
@@ -65,7 +65,7 @@ export function buildRendererConfig(cfg: ResolvedMarkdownConfig): RendererConfig
       },
 
       // Table blocks — basic passthrough rendering.
-      // A full table→markdown converter can be added via extendBlock().
+      // A full table→markdown converter can be added via withBlock().
       table: (_node, children) => children,
       'table-row': (_node, children) => children,
       'table-cell': (_node, children) => children,

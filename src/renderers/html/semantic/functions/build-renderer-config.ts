@@ -1,5 +1,5 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorities';
-import type { RendererConfig } from '../../../../core/ast-types';
+import type { MarkHandler, RendererConfig, TNode } from '../../../../core/ast-types';
 import {
   resolveCheckedState,
   resolveCodeBlockMeta,
@@ -25,6 +25,34 @@ import { buildBlockAttrs } from './build-block-attrs';
 import { encodeText } from './encode-text';
 import { resolveInlineStyle } from './resolve-inline-style';
 import { sanitizeUrl } from './sanitize-url';
+
+/**
+ * Creates a mark handler for attributes like `font` and `size` that render
+ * as either an inline style (when `inlineStyles` is enabled and a converter
+ * exists) or a CSS class (default).
+ *
+ * Eliminates duplication between the `font` and `size` mark handler code paths.
+ */
+function createClassOrStyleMark(
+  attrName: string,
+  cfg: ResolvedConfig,
+): MarkHandler<string, ResolvedAttrs> {
+  return (content: string, value: unknown, node: TNode) => {
+    const strValue = String(value);
+    if (cfg.inlineStyles !== false) {
+      const overrides = cfg.inlineStyles;
+      const converter: InlineStyleConverter | undefined =
+        overrides[attrName] ?? DEFAULT_INLINE_STYLES[attrName];
+      if (converter) {
+        const style = resolveInlineStyle(converter, strValue, node);
+        if (style) {
+          return `<span style="${style}">${content}</span>`;
+        }
+      }
+    }
+    return `<span class="${cfg.classPrefix}-${attrName}-${encodeText(strValue, cfg)}">${content}</span>`;
+  };
+}
 
 /**
  * Build a full `RendererConfig` from the resolved semantic config.
@@ -217,37 +245,9 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
 
       code: codeMark,
 
-      font: (content, value, node) => {
-        if (cfg.inlineStyles !== false) {
-          const overrides = cfg.inlineStyles;
-          const converter: InlineStyleConverter | undefined =
-            overrides.font ?? DEFAULT_INLINE_STYLES.font;
-          if (converter) {
-            const style = resolveInlineStyle(converter, String(value), node);
-            if (style) {
-              return `<span style="${style}">${content}</span>`;
-            }
-          }
-          return `<span class="${cfg.classPrefix}-font-${encodeText(String(value), cfg)}">${content}</span>`;
-        }
-        return `<span class="${cfg.classPrefix}-font-${encodeText(String(value), cfg)}">${content}</span>`;
-      },
+      font: createClassOrStyleMark('font', cfg),
 
-      size: (content, value, node) => {
-        if (cfg.inlineStyles !== false) {
-          const overrides = cfg.inlineStyles;
-          const converter: InlineStyleConverter | undefined =
-            overrides.size ?? DEFAULT_INLINE_STYLES.size;
-          if (converter) {
-            const style = resolveInlineStyle(converter, String(value), node);
-            if (style) {
-              return `<span style="${style}">${content}</span>`;
-            }
-          }
-          return `<span class="${cfg.classPrefix}-size-${encodeText(String(value), cfg)}">${content}</span>`;
-        }
-        return `<span class="${cfg.classPrefix}-size-${encodeText(String(value), cfg)}">${content}</span>`;
-      },
+      size: createClassOrStyleMark('size', cfg),
     },
 
     // ─── Attributor Marks (contribute attrs to parent element) ───────

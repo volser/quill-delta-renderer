@@ -67,17 +67,21 @@ describe('SemanticHtmlRenderer', () => {
   });
 
   describe('extensibility', () => {
-    it('should allow overriding block handlers at runtime', () => {
-      const renderer = new SemanticHtmlRenderer();
-      renderer.extendBlock('paragraph', (_node, children) => `<div>${children}</div>`);
+    it('should allow overriding block handlers via withBlock()', () => {
+      const renderer = new SemanticHtmlRenderer().withBlock(
+        'paragraph',
+        (_node, children) => `<div>${children}</div>`,
+      );
 
       const ast = new DeltaParser({ ops: [{ insert: 'text\n' }] }, QUILL_CONFIG).toAST();
       expect(renderer.render(ast)).toBe('<div>text</div>');
     });
 
-    it('should allow overriding mark handlers at runtime', () => {
-      const renderer = new SemanticHtmlRenderer();
-      renderer.extendMark('bold', (content) => `<b>${content}</b>`);
+    it('should allow overriding mark handlers via withMark()', () => {
+      const renderer = new SemanticHtmlRenderer().withMark(
+        'bold',
+        (content) => `<b>${content}</b>`,
+      );
 
       const ast = new DeltaParser(
         { ops: [{ insert: 'bold', attributes: { bold: true } }, { insert: '\n' }] },

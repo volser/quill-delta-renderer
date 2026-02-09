@@ -26,12 +26,42 @@ export interface Delta {
 export type Attributes = Record<string, unknown>;
 
 /**
+ * Known built-in node types produced by the parser and standard transformers.
+ *
+ * Custom embed types (e.g. `'my-widget'`) are also valid — the type field
+ * accepts any string. This union exists to provide IDE autocomplete for the
+ * common cases.
+ */
+export type KnownNodeType =
+  | 'root'
+  | 'text'
+  | 'paragraph'
+  | 'header'
+  | 'blockquote'
+  | 'code-block'
+  | 'code-block-container'
+  | 'list'
+  | 'list-item'
+  | 'table'
+  | 'table-row'
+  | 'table-cell'
+  | 'image'
+  | 'video'
+  | 'formula'
+  | 'mention';
+
+/**
  * The universal AST node. Decouples Quill's flat delta format from
  * the tree structure needed for rendering.
  */
 export interface TNode {
-  /** Node type identifier, e.g. 'paragraph', 'header', 'list', 'list-item', 'video', 'text' */
-  type: string;
+  /**
+   * Node type identifier (e.g. `'paragraph'`, `'header'`, `'list-item'`, `'video'`, `'text'`).
+   *
+   * Standard types are listed in {@link KnownNodeType}. Custom string types
+   * are also accepted for embed/extension use cases.
+   */
+  type: KnownNodeType | (string & {});
   /** Quill attributes (formatting, ids, custom data) */
   attributes: Attributes;
   /** Child nodes */
@@ -40,6 +70,24 @@ export interface TNode {
   data?: string | Record<string, unknown>;
   /** Whether this node represents inline content (text, inline embeds) */
   isInline: boolean;
+}
+
+// ─── Type Guards ─────────────────────────────────────────────────────────────
+
+/**
+ * Check whether a node is a text leaf node.
+ * Narrows `node.data` to `string` and `node.type` to `'text'`.
+ */
+export function isTextNode(node: TNode): node is TNode & { type: 'text'; data: string } {
+  return node.type === 'text';
+}
+
+/**
+ * Check whether a node is an embed node with object data.
+ * Narrows `node.data` to `Record<string, unknown>`.
+ */
+export function isEmbedNode(node: TNode): node is TNode & { data: Record<string, unknown> } {
+  return typeof node.data === 'object' && node.data !== null;
 }
 
 // ─── Transformer Types ───────────────────────────────────────────────────────

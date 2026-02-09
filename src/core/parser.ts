@@ -22,6 +22,13 @@ import type { Attributes, Delta, ParserConfig, TNode, Transformer } from './ast-
  * ```
  */
 export function parseDelta(delta: Delta, config: ParserConfig): TNode {
+  if (!delta?.ops || !Array.isArray(delta.ops)) {
+    throw new TypeError(
+      'parseDelta: expected a Delta object with an ops array, received ' +
+        (delta === null ? 'null' : typeof delta),
+    );
+  }
+
   const blockAttributes = config.blockAttributes;
   const blockEmbeds = new Set(config.blockEmbeds ?? []);
 

@@ -4,9 +4,8 @@ import { ReactRenderer } from '../react-renderer';
 import { d, renderDeltaWith } from './test-helpers';
 
 describe('ReactRenderer – extensibility', () => {
-  it('should support custom block handlers via extendBlock()', () => {
-    const renderer = new ReactRenderer();
-    renderer.extendBlock('user_mention', (node) => {
+  it('should support custom block handlers via withBlock()', () => {
+    const renderer = new ReactRenderer().withBlock('user_mention', (node) => {
       const data = node.data as Record<string, unknown>;
       return createElement('a', { href: `#user_mention#${data.id}` }, `@${data.name}`);
     });
@@ -25,9 +24,8 @@ describe('ReactRenderer – extensibility', () => {
     expect(html).toBe('<div><p><a href="#user_mention#123">@TestUser</a></p></div>');
   });
 
-  it('should support custom mark handlers via extendMark()', () => {
-    const renderer = new ReactRenderer();
-    renderer.extendMark('highlight', (content) => {
+  it('should support custom mark handlers via withMark()', () => {
+    const renderer = new ReactRenderer().withMark('highlight', (content) => {
       return createElement('mark', null, content);
     });
 

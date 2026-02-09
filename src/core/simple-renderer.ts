@@ -1,4 +1,4 @@
-import type { BlockDescriptor, BlockHandler, MarkHandler, SimpleTagMark, TNode } from './ast-types';
+import type { BlockDescriptor, BlockHandler, MarkHandler, TNode } from './ast-types';
 import { BaseRenderer } from './base-renderer';
 
 /**
@@ -7,13 +7,22 @@ import { BaseRenderer } from './base-renderer';
  * Omits `attributors` and `blockAttributeResolvers` since
  * SimpleRenderer does not support the attributor system.
  *
+ * **Note:** `marks` only accepts function-based `MarkHandler` entries.
+ * Declarative `SimpleTagMark` descriptors are not supported because
+ * `SimpleRenderer` has no tag-rendering mechanism. Use {@link BaseRenderer}
+ * directly if you need declarative tag marks.
+ *
  * @typeParam Output - The rendered output type (string, etc.)
  */
 export interface SimpleRendererConfig<Output> {
   /** How to render block-level nodes (paragraph, header, list, etc.) */
   blocks: Record<string, BlockHandler<Output> | BlockDescriptor>;
-  /** How to render inline element marks (bold, link, etc.) */
-  marks: Record<string, MarkHandler<Output> | SimpleTagMark>;
+  /**
+   * How to render inline element marks (bold, link, etc.).
+   * Only function-based handlers are supported — `SimpleTagMark` descriptors
+   * are silently ignored by SimpleRenderer. Use `BaseRenderer` if you need them.
+   */
+  marks: Record<string, MarkHandler<Output>>;
   /** Optional mark nesting priorities. Higher value = wraps outer. */
   markPriorities?: Record<string, number>;
 }

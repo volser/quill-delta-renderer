@@ -1,6 +1,8 @@
 import { cloneElement, createElement, isValidElement, type ReactNode } from 'react';
 import type { BlockDescriptor, TNode } from '../../core/ast-types';
 import { BaseRenderer } from '../../core/base-renderer';
+import { buildCodeBlockClassName } from '../common/resolve-block-meta';
+import { resolveCodeBlockLines } from '../common/resolve-code-block-lines';
 import { buildRendererConfig } from './functions/build-renderer-config';
 import { resolveConfig } from './functions/resolve-config';
 import type { ReactRendererConfig, ResolvedReactConfig } from './types/react-config';
@@ -51,8 +53,7 @@ function withKey(child: ReactNode, index: number): ReactNode {
  * @example
  * ```tsx
  * // Extend with custom embed
- * const renderer = new ReactRenderer();
- * renderer.extendBlock('user_mention', (node) => {
+ * const renderer = new ReactRenderer().withBlock('user_mention', (node) => {
  *   const data = node.data as Record<string, unknown>;
  *   return createElement('a', { href: `#user_mention#${data.id}` }, `@${data.name}`);
  * });
@@ -90,20 +91,12 @@ export class ReactRenderer extends BaseRenderer<ReactNode, ReactProps> {
    * in `<pre><code>...</code></pre>` with an optional language class.
    */
   private renderCodeBlockContainer(node: TNode): ReactNode {
-    const firstChild = node.children[0];
-    const lang = firstChild ? firstChild.attributes['code-block'] : undefined;
+    const { language, lines } = resolveCodeBlockLines(node);
+    const className = buildCodeBlockClassName(language, this.cfg.classPrefix);
 
-    const syntaxClass = `${this.cfg.classPrefix}-syntax`;
-    const className =
-      typeof lang === 'string' && lang !== 'true' ? `${syntaxClass} language-${lang}` : syntaxClass;
+    const linesWithNewlines = lines.map((text, i) => (i < lines.length - 1 ? `${text}\n` : text));
 
-    const lines = node.children.map((child, i) => {
-      const text = child.children.map((c) => String(c.data ?? '')).join('');
-      // Add newline between lines (not after the last one)
-      return i < node.children.length - 1 ? `${text}\n` : text;
-    });
-
-    const codeElement = createElement('code', { className }, ...lines);
+    const codeElement = createElement('code', { className }, ...linesWithNewlines);
     return createElement('pre', null, codeElement);
   }
 
