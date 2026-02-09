@@ -391,3 +391,79 @@ describe('DeltaParser', () => {
     });
   });
 });
+
+// ─── softLineBreaks ─────────────────────────────────────────────────────────
+
+describe('parseDelta softLineBreaks', () => {
+  const CONFIG_WITH_BLOCKS: ParserConfig = {
+    blockAttributes: {
+      header: (v) => ({ blockType: 'header', blockAttrs: { header: v } }),
+    },
+    softLineBreaks: true,
+  };
+
+  const SOFT_CONFIG: ParserConfig = { blockAttributes: {}, softLineBreaks: true };
+
+  it('should insert line-break nodes for inner newlines in a single insert', () => {
+    const delta: Delta = { ops: [{ insert: 'A\nB\nC\n' }] };
+    const ast = parseDelta(delta, SOFT_CONFIG);
+
+    expect(ast.children).toHaveLength(1);
+    const block = ast.children[0]!;
+    expect(block.type).toBe('paragraph');
+
+    expect(block.children).toHaveLength(5);
+    expect(block.children[0]).toMatchObject({ type: 'text', data: 'A' });
+    expect(block.children[1]).toMatchObject({ type: 'line-break', isInline: true });
+    expect(block.children[2]).toMatchObject({ type: 'text', data: 'B' });
+    expect(block.children[3]).toMatchObject({ type: 'line-break', isInline: true });
+    expect(block.children[4]).toMatchObject({ type: 'text', data: 'C' });
+  });
+
+  it('should insert line-break nodes for empty inner lines', () => {
+    const delta: Delta = { ops: [{ insert: '\n\n\n' }] };
+    const ast = parseDelta(delta, SOFT_CONFIG);
+
+    expect(ast.children).toHaveLength(1);
+    const block = ast.children[0]!;
+    expect(block.type).toBe('paragraph');
+
+    // 3 newlines: first two become line-breaks, last flushes
+    expect(block.children).toHaveLength(2);
+    expect(block.children[0]).toMatchObject({ type: 'line-break' });
+    expect(block.children[1]).toMatchObject({ type: 'line-break' });
+  });
+
+  it('should still create separate blocks for block-level attributes', () => {
+    const delta: Delta = {
+      ops: [{ insert: 'Title' }, { insert: '\n', attributes: { header: 1 } }, { insert: 'Body\n' }],
+    };
+    const ast = parseDelta(delta, CONFIG_WITH_BLOCKS);
+
+    expect(ast.children).toHaveLength(2);
+    expect(ast.children[0]).toMatchObject({ type: 'header' });
+    expect(ast.children[1]).toMatchObject({ type: 'paragraph' });
+  });
+
+  it('should not affect single-newline inserts', () => {
+    const delta: Delta = { ops: [{ insert: 'Hello\n' }] };
+    const ast = parseDelta(delta, SOFT_CONFIG);
+
+    expect(ast.children).toHaveLength(1);
+    expect(ast.children[0]!.children).toHaveLength(1);
+    expect(ast.children[0]!.children[0]).toMatchObject({ type: 'text', data: 'Hello' });
+  });
+
+  it('should handle text without trailing newline (mid-insert)', () => {
+    const delta: Delta = { ops: [{ insert: 'A\nB' }] };
+    const ast = parseDelta(delta, SOFT_CONFIG);
+
+    // No trailing \n → content stays in buffer, flushed as trailing paragraph
+    expect(ast.children).toHaveLength(1);
+    const block = ast.children[0]!;
+    expect(block.children).toHaveLength(3);
+    expect(block.children[0]).toMatchObject({ type: 'text', data: 'A' });
+    expect(block.children[1]).toMatchObject({ type: 'line-break' });
+    expect(block.children[2]).toMatchObject({ type: 'text', data: 'B' });
+  });
+});
