@@ -93,7 +93,7 @@ describe('SemanticHtmlRenderer integration: blocks', () => {
     const html = renderDelta({
       ops: [{ insert: 'text' }, { insert: '\n', attributes: { indent: 1, align: 'right' } }],
     });
-    expect(html).toBe('<p class="ql-indent-1 ql-align-right">text</p>');
+    expect(html).toBe('<p class="ql-align-right ql-indent-1">text</p>');
   });
 });
 

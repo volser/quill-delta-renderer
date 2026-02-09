@@ -78,6 +78,12 @@ export type BlockAttributeHandler = (value: unknown) => {
 export interface ParserConfig {
   /** Block attribute handlers keyed by attribute name */
   blockAttributes: Record<string, BlockAttributeHandler>;
+  /**
+   * Embed types that are block-level (e.g. `['video']`).
+   * Block embeds are rendered as standalone blocks instead of being
+   * placed inside a paragraph.
+   */
+  blockEmbeds?: string[];
 }
 
 // ─── Renderer Types ─────────────────────────────────────────────────────────

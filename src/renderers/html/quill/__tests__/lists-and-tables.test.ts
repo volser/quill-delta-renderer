@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { renderDelta } from './test-helpers';
 
 describe('QuillHtmlRenderer integration: lists', () => {
-  it('should render a bullet list', () => {
+  it('should render a bullet list with <ol> and data-list="bullet"', () => {
     const html = renderDelta({
       ops: [
         { insert: 'Item 1' },
@@ -11,10 +11,12 @@ describe('QuillHtmlRenderer integration: lists', () => {
         { insert: '\n', attributes: { list: 'bullet' } },
       ],
     });
-    expect(html).toBe('<ul><li>Item 1</li><li>Item 2</li></ul>');
+    expect(html).toBe(
+      '<ol><li data-list="bullet">Item 1</li><li data-list="bullet">Item 2</li></ol>',
+    );
   });
 
-  it('should render an ordered list', () => {
+  it('should render an ordered list with <ol> and data-list="ordered"', () => {
     const html = renderDelta({
       ops: [
         { insert: 'First' },
@@ -23,7 +25,9 @@ describe('QuillHtmlRenderer integration: lists', () => {
         { insert: '\n', attributes: { list: 'ordered' } },
       ],
     });
-    expect(html).toBe('<ol><li>First</li><li>Second</li></ol>');
+    expect(html).toBe(
+      '<ol><li data-list="ordered">First</li><li data-list="ordered">Second</li></ol>',
+    );
   });
 
   it('should render checked items with data-list="checked"', () => {
@@ -50,11 +54,11 @@ describe('QuillHtmlRenderer integration: lists', () => {
       ],
     });
     expect(html).toBe(
-      '<ul><li data-list="checked">Done</li><li data-list="unchecked">Not done</li></ul>',
+      '<ol><li data-list="checked">Done</li><li data-list="unchecked">Not done</li></ol>',
     );
   });
 
-  it('should add ql-indent class to indented list items', () => {
+  it('should render flat list with ql-indent class (no nesting)', () => {
     const html = renderDelta({
       ops: [
         { insert: 'Parent' },
@@ -63,16 +67,16 @@ describe('QuillHtmlRenderer integration: lists', () => {
         { insert: '\n', attributes: { list: 'bullet', indent: 1 } },
       ],
     });
-    expect(html).toContain('<li>Parent');
-    expect(html).toContain('class="ql-indent-1"');
-    expect(html).toContain('Child');
+    expect(html).toBe(
+      '<ol><li data-list="bullet">Parent</li><li class="ql-indent-1" data-list="bullet">Child</li></ol>',
+    );
   });
 
   it('should render empty list item with <br>', () => {
     const html = renderDelta({
       ops: [{ insert: '\n', attributes: { list: 'bullet' } }],
     });
-    expect(html).toContain('<li><br></li>');
+    expect(html).toContain('<li data-list="bullet"><br></li>');
   });
 
   it('should render list item with align class', () => {
@@ -82,22 +86,23 @@ describe('QuillHtmlRenderer integration: lists', () => {
         { insert: '\n', attributes: { list: 'bullet', align: 'center' } },
       ],
     });
-    expect(html).toContain('class="ql-align-center"');
+    expect(html).toContain('ql-align-center');
+    expect(html).toContain('data-list="bullet"');
     expect(html).toContain('centered');
   });
 
-  it('should render list item with indent and align classes', () => {
+  it('should render list item with align and indent classes (Quill order)', () => {
     const html = renderDelta({
       ops: [
         { insert: 'item' },
         { insert: '\n', attributes: { list: 'ordered', indent: 1, align: 'right' } },
       ],
     });
-    expect(html).toContain('ql-indent-1');
-    expect(html).toContain('ql-align-right');
+    expect(html).toContain('class="ql-align-right ql-indent-1"');
+    expect(html).toContain('data-list="ordered"');
   });
 
-  it('should switch between ordered and bullet list types', () => {
+  it('should keep all consecutive list items in one <ol> (flat, like Quill)', () => {
     const html = renderDelta({
       ops: [
         { insert: 'ordered' },
@@ -106,8 +111,9 @@ describe('QuillHtmlRenderer integration: lists', () => {
         { insert: '\n', attributes: { list: 'bullet' } },
       ],
     });
-    expect(html).toContain('<ol><li>ordered</li></ol>');
-    expect(html).toContain('<ul><li>bullet</li></ul>');
+    expect(html).toBe(
+      '<ol><li data-list="ordered">ordered</li><li data-list="bullet">bullet</li></ol>',
+    );
   });
 });
 

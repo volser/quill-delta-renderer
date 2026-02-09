@@ -95,18 +95,18 @@ describe('QuillHtmlRenderer integration: inline marks', () => {
     expect(html).toBe('<p><span class="ql-size-large">big</span></p>');
   });
 
-  it('should render combined bold + italic', () => {
+  it('should render combined bold + italic (bold wraps outer like Quill)', () => {
     const html = renderDelta({
       ops: [{ insert: 'both', attributes: { bold: true, italic: true } }, { insert: '\n' }],
     });
-    expect(html).toContain('<em><strong>both</strong></em>');
+    expect(html).toContain('<strong><em>both</em></strong>');
   });
 
-  it('should render combined strikethrough + underline', () => {
+  it('should render combined strikethrough + underline (strike wraps outer like Quill)', () => {
     const html = renderDelta({
       ops: [{ insert: 'combo', attributes: { strike: true, underline: true } }, { insert: '\n' }],
     });
-    expect(html).toContain('<u><s>combo</s></u>');
+    expect(html).toContain('<s><u>combo</u></s>');
   });
 
   it('should render bold + code combo', () => {

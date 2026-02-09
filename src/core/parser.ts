@@ -21,10 +21,12 @@ export class DeltaParser {
   private readonly delta: Delta;
   private readonly transformers: Transformer[] = [];
   private readonly blockAttributes: ParserConfig['blockAttributes'];
+  private readonly blockEmbeds: Set<string>;
 
   constructor(delta: Delta, config: ParserConfig) {
     this.delta = delta;
     this.blockAttributes = config.blockAttributes;
+    this.blockEmbeds = new Set(config.blockEmbeds ?? []);
   }
 
   /**
@@ -65,7 +67,19 @@ export class DeltaParser {
         this.parseTextOp(op.insert, op.attributes ?? {}, inlineBuffer, root);
       } else {
         // Embed (image, video, mention, etc.)
-        inlineBuffer.push(this.parseEmbedOp(op.insert, op.attributes ?? {}));
+        const embed = this.parseEmbedOp(op.insert, op.attributes ?? {});
+
+        if (this.blockEmbeds.has(embed.type)) {
+          // Block-level embed: flush any pending inline content first,
+          // then add the embed as a standalone root-level block.
+          if (inlineBuffer.length > 0) {
+            root.children.push(this.createBlock('paragraph', {}, inlineBuffer));
+            inlineBuffer.length = 0;
+          }
+          root.children.push(embed);
+        } else {
+          inlineBuffer.push(embed);
+        }
       }
     }
 

@@ -1,4 +1,26 @@
-import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorities';
+/**
+ * Mark nesting priorities matching Quill's actual DOM nesting order.
+ *
+ * In Quill's Parchment, simple format blots (Bold, Strike) wrap outside
+ * more complex ones (Link, Italic, Underline). Color and background are
+ * Parchment Attributors (they modify the parent element's style rather
+ * than creating wrapper elements), so their priority only matters
+ * relative to other marks in our renderer.
+ */
+const QUILL_MARK_PRIORITIES: Record<string, number> = {
+  background: 80,
+  color: 70,
+  bold: 50,
+  strike: 40,
+  underline: 30,
+  italic: 20,
+  link: 15,
+  code: 10,
+  script: 5,
+  font: 3,
+  size: 2,
+};
+
 import type { RendererConfig } from '../../../../core/ast-types';
 import { escapeHtml } from '../../base-html-renderer';
 import { buildAttrString, buildClassAttr } from '../../common/build-attr-string';
@@ -28,7 +50,7 @@ const PREFIX = 'ql';
  */
 export function buildQuillConfig(): RendererConfig<string> {
   return {
-    markPriorities: DEFAULT_MARK_PRIORITIES,
+    markPriorities: QUILL_MARK_PRIORITIES,
     blocks: {
       paragraph: (node, children) => {
         const cls = buildClassAttr(getLayoutClasses(node, PREFIX));
@@ -50,17 +72,14 @@ export function buildQuillConfig(): RendererConfig<string> {
         return `<blockquote${cls}>${content}</blockquote>`;
       },
 
+      'code-block-container': (_node, children) => {
+        return `<div class="${PREFIX}-code-block-container" spellcheck="false">${children}</div>`;
+      },
+
       'code-block': (node, children) => {
         const lang = node.attributes['code-block'];
-        const langClass =
-          typeof lang === 'string' && lang !== 'true'
-            ? `${PREFIX}-syntax language-${lang}`
-            : `${PREFIX}-syntax`;
-
-        const classes = [langClass, ...getLayoutClasses(node, PREFIX)];
         const attrs: Record<string, string> = {
-          class: classes.filter(Boolean).join(' '),
-          spellcheck: 'false',
+          class: `${PREFIX}-code-block`,
         };
 
         if (typeof lang === 'string' && lang !== 'true') {
@@ -68,7 +87,7 @@ export function buildQuillConfig(): RendererConfig<string> {
         }
 
         const content = children || '<br>';
-        return `<pre${buildAttrString(attrs)}>${content}</pre>`;
+        return `<div${buildAttrString(attrs)}>${content}</div>`;
       },
 
       'list-item': (node, children) => {
@@ -80,17 +99,13 @@ export function buildQuillConfig(): RendererConfig<string> {
         if (layoutClasses.length > 0) {
           attrs.class = layoutClasses.join(' ');
         }
-        if (listType === 'checked' || listType === 'unchecked') {
-          attrs['data-list'] = listType;
-        }
+        attrs['data-list'] = listType;
 
         return `<li${buildAttrString(attrs)}>${content}</li>`;
       },
 
-      list: (node, children) => {
-        const listType = node.attributes.list;
-        const tag = listType === 'ordered' ? 'ol' : 'ul';
-        return `<${tag}>${children}</${tag}>`;
+      list: (_node, children) => {
+        return `<ol>${children}</ol>`;
       },
 
       table: (_node, children) => {
@@ -112,20 +127,22 @@ export function buildQuillConfig(): RendererConfig<string> {
 
       image: (node) => {
         const src = escapeHtml(String(node.data));
-        const alt = escapeHtml((node.attributes.alt as string) ?? '');
+        const alt = node.attributes.alt as string | undefined;
         const width = node.attributes.width as string | undefined;
         const height = node.attributes.height as string | undefined;
 
         let imgAttrs = `src="${src}"`;
+        if (alt != null) {
+          imgAttrs += ` alt="${escapeHtml(alt)}"`;
+        }
         if (width) {
           imgAttrs += ` width="${escapeHtml(width)}"`;
         }
         if (height) {
           imgAttrs += ` height="${escapeHtml(height)}"`;
         }
-        imgAttrs += ` alt="${alt}"`;
 
-        return `<img ${imgAttrs} />`;
+        return `<img ${imgAttrs}>`;
       },
 
       video: (node) => {

@@ -7,7 +7,7 @@ describe('QuillHtmlRenderer integration: embeds', () => {
       const html = renderDelta({
         ops: [{ insert: { image: 'https://example.com/img.png' } }, { insert: '\n' }],
       });
-      expect(html).toContain('<img src="https://example.com/img.png" alt="" />');
+      expect(html).toContain('<img src="https://example.com/img.png">');
     });
 
     it('should render image with alt text', () => {

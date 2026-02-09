@@ -28,12 +28,12 @@ describe('getLayoutClasses', () => {
     expect(getLayoutClasses(makeNode({ direction: 'rtl' }), 'ql')).toEqual(['ql-direction-rtl']);
   });
 
-  it('should combine all layout classes', () => {
+  it('should combine all layout classes in Quill order (direction, align, indent)', () => {
     const node = makeNode({ indent: 1, align: 'right', direction: 'rtl' });
     expect(getLayoutClasses(node, 'ql')).toEqual([
-      'ql-indent-1',
-      'ql-align-right',
       'ql-direction-rtl',
+      'ql-align-right',
+      'ql-indent-1',
     ]);
   });
 });

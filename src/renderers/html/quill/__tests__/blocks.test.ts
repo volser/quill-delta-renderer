@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderDelta, renderDeltaWithMerger } from './test-helpers';
+import { renderDelta } from './test-helpers';
 
 describe('QuillHtmlRenderer integration: blocks', () => {
   it('should render a paragraph', () => {
@@ -48,23 +48,26 @@ describe('QuillHtmlRenderer integration: blocks', () => {
     expect(html).toBe('<blockquote><br></blockquote>');
   });
 
-  it('should render a code block with ql-syntax and spellcheck="false"', () => {
+  it('should render a code block with ql-code-block-container and ql-code-block', () => {
     const html = renderDelta({
       ops: [{ insert: 'const x = 1;' }, { insert: '\n', attributes: { 'code-block': true } }],
     });
-    expect(html).toBe('<pre class="ql-syntax" spellcheck="false">const x = 1;</pre>');
+    expect(html).toBe(
+      '<div class="ql-code-block-container" spellcheck="false"><div class="ql-code-block">const x = 1;</div></div>',
+    );
   });
 
-  it('should render a code block with language class and data-language', () => {
+  it('should render a code block with data-language', () => {
     const html = renderDelta({
       ops: [
         { insert: 'const x = 1;' },
         { insert: '\n', attributes: { 'code-block': 'javascript' } },
       ],
     });
-    expect(html).toContain('class="ql-syntax language-javascript"');
-    expect(html).toContain('data-language="javascript"');
+    expect(html).toContain('class="ql-code-block-container"');
     expect(html).toContain('spellcheck="false"');
+    expect(html).toContain('class="ql-code-block"');
+    expect(html).toContain('data-language="javascript"');
     expect(html).toContain('const x = 1;');
   });
 
@@ -72,7 +75,9 @@ describe('QuillHtmlRenderer integration: blocks', () => {
     const html = renderDelta({
       ops: [{ insert: '\n', attributes: { 'code-block': true } }],
     });
-    expect(html).toBe('<pre class="ql-syntax" spellcheck="false"><br></pre>');
+    expect(html).toBe(
+      '<div class="ql-code-block-container" spellcheck="false"><div class="ql-code-block"><br></div></div>',
+    );
   });
 });
 
@@ -98,11 +103,11 @@ describe('QuillHtmlRenderer integration: ql-* layout classes', () => {
     expect(html).toBe('<p class="ql-direction-rtl">rtl</p>');
   });
 
-  it('should combine multiple layout classes', () => {
+  it('should combine multiple layout classes (Quill order: align, indent)', () => {
     const html = renderDelta({
       ops: [{ insert: 'text' }, { insert: '\n', attributes: { indent: 1, align: 'right' } }],
     });
-    expect(html).toBe('<p class="ql-indent-1 ql-align-right">text</p>');
+    expect(html).toBe('<p class="ql-align-right ql-indent-1">text</p>');
   });
 
   it('should add layout classes to headers', () => {
@@ -120,9 +125,9 @@ describe('QuillHtmlRenderer integration: ql-* layout classes', () => {
   });
 });
 
-describe('QuillHtmlRenderer integration: multi-line code block merging', () => {
-  it('should merge consecutive code blocks into one pre', () => {
-    const html = renderDeltaWithMerger({
+describe('QuillHtmlRenderer integration: multi-line code blocks', () => {
+  it('should group consecutive code blocks into one container', () => {
+    const html = renderDelta({
       ops: [
         { insert: 'line 1' },
         { insert: '\n', attributes: { 'code-block': true } },
@@ -132,14 +137,15 @@ describe('QuillHtmlRenderer integration: multi-line code block merging', () => {
         { insert: '\n', attributes: { 'code-block': true } },
       ],
     });
-    expect(html.match(/<pre/g)?.length).toBe(1);
+    expect(html.match(/ql-code-block-container/g)?.length).toBe(1);
+    expect(html.match(/ql-code-block"/g)?.length).toBe(3);
     expect(html).toContain('line 1');
     expect(html).toContain('line 2');
     expect(html).toContain('line 3');
   });
 
   it('should HTML-encode content inside code blocks', () => {
-    const html = renderDeltaWithMerger({
+    const html = renderDelta({
       ops: [{ insert: '<p>hello</p>' }, { insert: '\n', attributes: { 'code-block': true } }],
     });
     expect(html).toContain('&lt;p&gt;hello&lt;/p&gt;');
