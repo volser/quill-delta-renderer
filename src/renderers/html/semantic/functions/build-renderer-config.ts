@@ -1,5 +1,12 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorities';
 import type { RendererConfig } from '../../../../core/ast-types';
+import {
+  resolveCheckedState,
+  resolveCodeBlockMeta,
+  resolveLinkMeta,
+} from '../../../common/resolve-block-meta';
+import { resolveFormulaText, resolveVideoSrc } from '../../../common/resolve-embed-data';
+import { resolveMentionData } from '../../../common/resolve-mention-data';
 import { serializeResolvedAttrs } from '../../base-html-renderer';
 import { buildAttrString } from '../../common/build-attr-string';
 import type { ResolvedAttrs } from '../../common/resolved-attrs';
@@ -60,33 +67,26 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
 
       'code-block': (node, children) => {
         const tag = cfg.customTag?.('code-block', node) ?? 'pre';
-        const lang = node.attributes['code-block'];
-        const syntaxClass = `${cfg.classPrefix}-syntax`;
-        const langClass =
-          typeof lang === 'string' && lang !== 'true'
-            ? `${syntaxClass} language-${lang}`
-            : syntaxClass;
+        const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
 
         const extraAttrs: Record<string, string> = {};
-        if (typeof lang === 'string' && lang !== 'true') {
-          extraAttrs['data-language'] = lang;
+        if (meta.language) {
+          extraAttrs['data-language'] = meta.language;
         }
 
         const content = children || '<br/>';
-        const attrStr = buildBlockAttrs(node, cfg, [langClass], undefined, extraAttrs);
+        const attrStr = buildBlockAttrs(node, cfg, [meta.className], undefined, extraAttrs);
         return `<${tag}${attrStr}>${content}</${tag}>`;
       },
 
       'list-item': (node, children) => {
         const tag = cfg.customTag?.('list-item', node) ?? cfg.listItemTag;
-        const listType = node.attributes.list as string;
         const content = children || '<br/>';
 
         const extraAttrs: Record<string, string> = {};
-        if (listType === 'checked') {
-          extraAttrs['data-checked'] = 'true';
-        } else if (listType === 'unchecked') {
-          extraAttrs['data-checked'] = 'false';
+        const checked = resolveCheckedState(node);
+        if (checked !== undefined) {
+          extraAttrs['data-checked'] = checked;
         }
 
         const attrStr = buildBlockAttrs(node, cfg, undefined, undefined, extraAttrs);
@@ -158,7 +158,9 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
       },
 
       video: (node) => {
-        const src = sanitizeUrl(String(node.data), cfg);
+        const rawSrc = resolveVideoSrc(node);
+        if (!rawSrc) return '';
+        const src = sanitizeUrl(rawSrc, cfg);
         if (!src) return '';
         const videoClass = `${cfg.classPrefix}-video`;
         return `<iframe class="${videoClass}" src="${encodeText(src, cfg)}" frameborder="0" allowfullscreen="true"></iframe>`;
@@ -166,33 +168,23 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
 
       formula: (node) => {
         const formulaClass = `${cfg.classPrefix}-formula`;
-        const data = node.data as string | Record<string, unknown>;
-        const text = typeof data === 'string' ? data : String(data);
+        const text = resolveFormulaText(node);
         return `<span class="${formulaClass}">${encodeText(text, cfg)}</span>`;
       },
 
       mention: (node) => {
-        const mentionData = (node.data ?? node.attributes.mention ?? {}) as Record<string, unknown>;
-        const name = String(mentionData.name ?? '');
-        const slug = mentionData.slug as string | undefined;
-        const endpoint = mentionData['end-point'] as string | undefined;
-        const mentionClass = mentionData.class as string | undefined;
-        const target = mentionData.target as string | undefined;
+        const mention = resolveMentionData(node);
 
         const attrs: Record<string, string> = {};
-        if (mentionClass) {
-          attrs.class = mentionClass;
+        if (mention.className) {
+          attrs.class = mention.className;
         }
-        if (endpoint && slug) {
-          attrs.href = `${endpoint}/${slug}`;
-        } else {
-          attrs.href = 'about:blank';
-        }
-        if (target) {
-          attrs.target = target;
+        attrs.href = mention.href;
+        if (mention.target) {
+          attrs.target = mention.target;
         }
 
-        return `<a${buildAttrString(attrs)}>${encodeText(name, cfg)}</a>`;
+        return `<a${buildAttrString(attrs)}>${encodeText(mention.name, cfg)}</a>`;
       },
     },
 
@@ -208,18 +200,13 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         const href = sanitizeUrl(rawHref, cfg);
         if (!href) return content;
 
+        const meta = resolveLinkMeta(node, cfg.linkTarget, cfg.linkRel);
         let attrs = `href="${encodeText(href, cfg)}"`;
-
-        // Per-op target/rel override global config
-        const target =
-          typeof node.attributes.target === 'string' ? node.attributes.target : cfg.linkTarget;
-        const rel = typeof node.attributes.rel === 'string' ? node.attributes.rel : cfg.linkRel;
-
-        if (target) {
-          attrs += ` target="${target}"`;
+        if (meta.target) {
+          attrs += ` target="${meta.target}"`;
         }
-        if (rel) {
-          attrs += ` rel="${rel}"`;
+        if (meta.rel) {
+          attrs += ` rel="${meta.rel}"`;
         }
 
         const collected = serializeResolvedAttrs(collectedAttrs);

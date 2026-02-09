@@ -2,6 +2,17 @@ import { type ComponentType, createElement, type ReactNode } from 'react';
 import { DEFAULT_MARK_PRIORITIES } from '../../../common/default-mark-priorities';
 import type { RendererConfig, TNode } from '../../../core/ast-types';
 import {
+  resolveCheckedState,
+  resolveCodeBlockMeta,
+  resolveLinkMeta,
+} from '../../common/resolve-block-meta';
+import {
+  resolveFormulaText,
+  resolveImageData,
+  resolveVideoSrc,
+} from '../../common/resolve-embed-data';
+import { resolveMentionData } from '../../common/resolve-mention-data';
+import {
   boldMark,
   codeMark,
   italicMark,
@@ -92,16 +103,10 @@ export function buildRendererConfig(
       },
 
       'code-block': (node, children) => {
-        const lang = node.attributes['code-block'];
-        const syntaxClass = `${cfg.classPrefix}-syntax`;
-        const className =
-          typeof lang === 'string' && lang !== 'true'
-            ? `${syntaxClass} language-${lang}`
-            : syntaxClass;
-
-        const extraProps: Record<string, unknown> = { className };
-        if (typeof lang === 'string' && lang !== 'true') {
-          extraProps['data-language'] = lang;
+        const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
+        const extraProps: Record<string, unknown> = { className: meta.className };
+        if (meta.language) {
+          extraProps['data-language'] = meta.language;
         }
 
         const custom = tryCustomComponent(cfg, 'code-block', node, children, extraProps);
@@ -112,12 +117,10 @@ export function buildRendererConfig(
       },
 
       'list-item': (node, children) => {
-        const listType = node.attributes.list as string;
+        const checked = resolveCheckedState(node);
         const extraProps: Record<string, unknown> = {};
-        if (listType === 'checked') {
-          extraProps['data-checked'] = 'true';
-        } else if (listType === 'unchecked') {
-          extraProps['data-checked'] = 'false';
+        if (checked !== undefined) {
+          extraProps['data-checked'] = checked;
         }
 
         const custom = tryCustomComponent(cfg, 'list-item', node, children, extraProps);
@@ -172,29 +175,20 @@ export function buildRendererConfig(
       },
 
       image: (node) => {
-        const data = node.data;
-        const src =
-          typeof data === 'string'
-            ? data
-            : String((data as Record<string, unknown>)?.url ?? data ?? '');
-        if (!src) return null;
+        const img = resolveImageData(node);
+        if (!img) return null;
 
-        const alt = (node.attributes.alt as string) ?? '';
-        const width = node.attributes.width as string | undefined;
-        const height = node.attributes.height as string | undefined;
-        const linkHref = node.attributes.link as string | undefined;
-
-        const imgProps: Record<string, unknown> = { src, alt };
-        if (width) imgProps.width = width;
-        if (height) imgProps.height = height;
+        const imgProps: Record<string, unknown> = { src: img.src, alt: img.alt };
+        if (img.width) imgProps.width = img.width;
+        if (img.height) imgProps.height = img.height;
 
         const custom = tryCustomComponent(cfg, 'image', node, null, imgProps);
         if (custom !== undefined) return custom;
 
         const imgElement = createElement('img', imgProps);
 
-        if (linkHref) {
-          const linkProps: Record<string, unknown> = { href: linkHref };
+        if (img.linkHref) {
+          const linkProps: Record<string, unknown> = { href: img.linkHref };
           if (cfg.linkTarget) linkProps.target = cfg.linkTarget;
           if (cfg.linkRel) linkProps.rel = cfg.linkRel;
           return createElement('a', linkProps, imgElement);
@@ -204,11 +198,7 @@ export function buildRendererConfig(
       },
 
       video: (node) => {
-        const data = node.data;
-        const src =
-          typeof data === 'string'
-            ? data
-            : String((data as Record<string, unknown>)?.url ?? data ?? '');
+        const src = resolveVideoSrc(node);
         if (!src) return null;
 
         const videoClass = `${cfg.classPrefix}-video`;
@@ -226,8 +216,7 @@ export function buildRendererConfig(
 
       formula: (node) => {
         const formulaClass = `${cfg.classPrefix}-formula`;
-        const data = node.data as string | Record<string, unknown>;
-        const text = typeof data === 'string' ? data : String(data);
+        const text = resolveFormulaText(node);
 
         const custom = tryCustomComponent(cfg, 'formula', node, text, { className: formulaClass });
         if (custom !== undefined) return custom;
@@ -236,26 +225,16 @@ export function buildRendererConfig(
       },
 
       mention: (node) => {
-        const mentionData = (node.data ?? node.attributes.mention ?? {}) as Record<string, unknown>;
-        const name = String(mentionData.name ?? '');
-        const slug = mentionData.slug as string | undefined;
-        const endpoint = mentionData['end-point'] as string | undefined;
-        const mentionClass = mentionData.class as string | undefined;
-        const target = mentionData.target as string | undefined;
+        const mention = resolveMentionData(node);
 
-        const linkProps: Record<string, unknown> = {};
-        if (mentionClass) linkProps.className = mentionClass;
-        if (endpoint && slug) {
-          linkProps.href = `${endpoint}/${slug}`;
-        } else {
-          linkProps.href = 'about:blank';
-        }
-        if (target) linkProps.target = target;
+        const linkProps: Record<string, unknown> = { href: mention.href };
+        if (mention.className) linkProps.className = mention.className;
+        if (mention.target) linkProps.target = mention.target;
 
-        const custom = tryCustomComponent(cfg, 'mention', node, name, linkProps);
+        const custom = tryCustomComponent(cfg, 'mention', node, mention.name, linkProps);
         if (custom !== undefined) return custom;
 
-        return createElement('a', linkProps, name);
+        return createElement('a', linkProps, mention.name);
       },
     },
 
@@ -273,15 +252,10 @@ export function buildRendererConfig(
         const href = String(value);
         if (!href) return content;
 
+        const meta = resolveLinkMeta(node, cfg.linkTarget, cfg.linkRel);
         const linkProps: Record<string, unknown> = { href };
-
-        // Per-op target/rel override global config
-        const target =
-          typeof node.attributes.target === 'string' ? node.attributes.target : cfg.linkTarget;
-        const rel = typeof node.attributes.rel === 'string' ? node.attributes.rel : cfg.linkRel;
-
-        if (target) linkProps.target = target;
-        if (rel) linkProps.rel = rel;
+        if (meta.target) linkProps.target = meta.target;
+        if (meta.rel) linkProps.rel = meta.rel;
 
         return createElement('a', linkProps, content);
       },
