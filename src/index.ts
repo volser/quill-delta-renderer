@@ -1,4 +1,6 @@
 // Core
+
+export { DEFAULT_MARK_PRIORITIES } from './common/default-mark-priorities';
 export type {
   Attributes,
   BlockHandler,
@@ -9,9 +11,7 @@ export type {
   TNode,
   Transformer,
 } from './core/ast-types';
-
 export { BaseRenderer } from './core/base-renderer';
-export { DEFAULT_MARK_PRIORITIES } from './core/default-mark-priorities';
 export { DeltaParser } from './core/parser';
 export { applyTransformers, composeTransformers } from './core/transformer';
 

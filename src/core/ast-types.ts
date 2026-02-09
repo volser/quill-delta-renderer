@@ -88,4 +88,6 @@ export interface RendererConfig<Output> {
   blocks: Record<string, BlockHandler<Output>>;
   /** How to render inline marks (bold, link, color, etc.) */
   marks: Record<string, MarkHandler<Output>>;
+  /** Optional mark nesting priorities. Higher value = wraps outer. */
+  markPriorities?: Record<string, number>;
 }

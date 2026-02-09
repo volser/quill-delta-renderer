@@ -1,3 +1,4 @@
+import { DEFAULT_MARK_PRIORITIES } from '../../common/default-mark-priorities';
 import type { RendererConfig } from '../../core/ast-types';
 import { BaseRenderer } from '../../core/base-renderer';
 
@@ -14,6 +15,7 @@ function escapeHtml(str: string): string {
 }
 
 const SEMANTIC_HTML_CONFIG: RendererConfig<string> = {
+  markPriorities: DEFAULT_MARK_PRIORITIES,
   blocks: {
     paragraph: (_node, children) => {
       if (!children) return '';
