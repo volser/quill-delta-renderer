@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import type { Delta } from '../../../../core/ast-types';
+import { parseQuillDelta } from '../../../../parse-quill-delta';
+import { SemanticHtmlRenderer } from '../semantic-html-renderer';
 import { renderDelta, renderDeltaWithMerger } from './test-helpers';
+
+/** Render using the convenience API (parseQuillDelta includes codeBlockGrouper). */
+function renderViaConvenience(delta: Delta): string {
+  const ast = parseQuillDelta(delta);
+  return new SemanticHtmlRenderer().render(ast);
+}
 
 describe('SemanticHtmlRenderer integration: blocks', () => {
   it('should render a paragraph', () => {
@@ -94,6 +103,52 @@ describe('SemanticHtmlRenderer integration: blocks', () => {
       ops: [{ insert: 'text' }, { insert: '\n', attributes: { indent: 1, align: 'right' } }],
     });
     expect(html).toBe('<p class="ql-align-right ql-indent-1">text</p>');
+  });
+});
+
+describe('SemanticHtmlRenderer integration: code-block-container (via parseQuillDelta)', () => {
+  it('should render consecutive code blocks as one pre via codeBlockGrouper', () => {
+    const html = renderViaConvenience({
+      ops: [
+        { insert: 'line 1' },
+        { insert: '\n', attributes: { 'code-block': true } },
+        { insert: 'line 2' },
+        { insert: '\n', attributes: { 'code-block': true } },
+        { insert: 'line 3' },
+        { insert: '\n', attributes: { 'code-block': true } },
+      ],
+    });
+    expect(html.match(/<pre/g)?.length).toBe(1);
+    expect(html).toContain('line 1\nline 2\nline 3');
+  });
+
+  it('should include language class and data-language attr', () => {
+    const html = renderViaConvenience({
+      ops: [
+        { insert: 'const x = 1;' },
+        { insert: '\n', attributes: { 'code-block': 'javascript' } },
+        { insert: 'const y = 2;' },
+        { insert: '\n', attributes: { 'code-block': 'javascript' } },
+      ],
+    });
+    expect(html).toContain('class="ql-syntax language-javascript"');
+    expect(html).toContain('data-language="javascript"');
+    expect(html).toContain('const x = 1;\nconst y = 2;');
+  });
+
+  it('should HTML-encode content inside code-block-container', () => {
+    const html = renderViaConvenience({
+      ops: [{ insert: '<div>hello</div>' }, { insert: '\n', attributes: { 'code-block': true } }],
+    });
+    expect(html).toContain('&lt;div&gt;hello&lt;/div&gt;');
+  });
+
+  it('should render a single code block as one pre', () => {
+    const html = renderViaConvenience({
+      ops: [{ insert: 'solo line' }, { insert: '\n', attributes: { 'code-block': true } }],
+    });
+    expect(html.match(/<pre/g)?.length).toBe(1);
+    expect(html).toContain('solo line');
   });
 });
 

@@ -2,10 +2,12 @@ import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorit
 import type { BlockHandler, MarkHandler, RendererConfig, TNode } from '../../../../core/ast-types';
 import { getHeaderLevel, getListType, getTableRow } from '../../../common/node-attributes';
 import {
+  buildCodeBlockClassName,
   resolveCheckedState,
   resolveCodeBlockMeta,
   resolveLinkMeta,
 } from '../../../common/resolve-block-meta';
+import { resolveCodeBlockLines } from '../../../common/resolve-code-block-lines';
 import {
   resolveFormulaText,
   resolveImageData,
@@ -20,7 +22,7 @@ import {
   strikeMark,
   underlineMark,
 } from '../../../common/simple-marks';
-import { serializeResolvedAttrs } from '../../base-html-renderer';
+import { escapeHtml, serializeResolvedAttrs } from '../../base-html-renderer';
 import { buildAttrString } from '../../common/build-attr-string';
 import type { ResolvedAttrs } from '../../common/resolved-attrs';
 import { DEFAULT_INLINE_STYLES } from '../consts/default-inline-styles';
@@ -110,6 +112,25 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
 
   return {
     markPriorities: DEFAULT_MARK_PRIORITIES,
+
+    // Handle code-block-container produced by codeBlockGrouper.
+    // Renders all child lines into a single <pre> with newline-separated,
+    // HTML-escaped content — matching quill-delta-to-html output.
+    nodeOverrides: {
+      'code-block-container': (node) => {
+        const { language, lines } = resolveCodeBlockLines(node);
+        const className = buildCodeBlockClassName(language, cfg.classPrefix);
+
+        const escapedLines = cfg.encodeHtml ? lines.map((line) => escapeHtml(line)) : lines;
+        const content = escapedLines.join('\n');
+
+        const tag = cfg.customTag?.('code-block', node) ?? 'pre';
+        const attrs: Record<string, string> = { class: className };
+        if (language) attrs['data-language'] = language;
+
+        return `<${tag}${buildAttrString(attrs)}>${content}</${tag}>`;
+      },
+    },
 
     // Wire customBlotRenderer as the generic onUnknownNode hook
     onUnknownNode: cfg.customBlotRenderer

@@ -16,27 +16,27 @@ pnpm bench
 
 | Scenario | SemanticHtmlRenderer | quill-delta-to-html | Speedup |
 | --- | ---: | ---: | ---: |
-| 5 paragraphs | 218,939 ops/s | 76,078 ops/s | **2.88x** |
-| 50 paragraphs | 24,241 ops/s | 7,868 ops/s | **3.08x** |
-| 500 paragraphs | 2,099 ops/s | 711 ops/s | **2.95x** |
+| 5 paragraphs | 245,973 ops/s | 77,029 ops/s | **3.19x** |
+| 50 paragraphs | 27,454 ops/s | 8,128 ops/s | **3.38x** |
+| 500 paragraphs | 2,219 ops/s | 773 ops/s | **2.87x** |
 
 ### Formatted text (bold, italic, links, colors)
 
 | Scenario | SemanticHtmlRenderer | quill-delta-to-html | Speedup |
 | --- | ---: | ---: | ---: |
-| 5 blocks | 48,480 ops/s | 12,553 ops/s | **3.86x** |
-| 50 blocks | 6,186 ops/s | 1,301 ops/s | **4.76x** |
-| 200 blocks | 1,521 ops/s | 316 ops/s | **4.81x** |
+| 5 blocks | 50,270 ops/s | 12,851 ops/s | **3.91x** |
+| 50 blocks | 6,175 ops/s | 1,314 ops/s | **4.70x** |
+| 200 blocks | 1,496 ops/s | 320 ops/s | **4.68x** |
 
 ### Structured content
 
 | Scenario | SemanticHtmlRenderer | quill-delta-to-html | Speedup |
 | --- | ---: | ---: | ---: |
-| Nested lists (5 levels x 4 items) | 39,627 ops/s | 13,792 ops/s | **2.87x** |
-| Headers with body text | 92,782 ops/s | 25,662 ops/s | **3.62x** |
-| Code blocks (5 blocks x 10 lines) | 13,751 ops/s | 14,774 ops/s | 0.93x |
-| Embeds (20 images) | 34,205 ops/s | 8,376 ops/s | **4.08x** |
-| Tables (10 rows x 4 cols) | 22,406 ops/s | 7,330 ops/s | **3.06x** |
+| Nested lists (5 levels x 4 items) | 40,783 ops/s | 14,887 ops/s | **2.74x** |
+| Headers with body text | 93,351 ops/s | 25,691 ops/s | **3.63x** |
+| Code blocks (5 blocks x 10 lines) | 27,157 ops/s | 13,857 ops/s | **1.96x** |
+| Embeds (20 images) | 34,988 ops/s | 8,132 ops/s | **4.30x** |
+| Tables (10 rows x 4 cols) | 22,534 ops/s | 6,651 ops/s | **3.39x** |
 
 ### Realistic document (mixed content)
 
@@ -44,14 +44,14 @@ A single document combining headers, formatted paragraphs, checklists, blockquot
 
 | Scenario | SemanticHtmlRenderer | quill-delta-to-html | Speedup |
 | --- | ---: | ---: | ---: |
-| Mixed-content document | 29,013 ops/s | 8,879 ops/s | **3.27x** |
+| Mixed-content document | 31,004 ops/s | 8,499 ops/s | **3.65x** |
 
 ## Key takeaways
 
-- **3-5x faster** across all typical scenarios (plain text, formatted text, lists, tables, embeds).
-- The advantage **grows with formatting complexity** — 4.8x at 200 blocks of rich text — because the AST-based pipeline handles mark nesting more efficiently than direct string concatenation.
-- The only near-parity is **code blocks** (0.93x) where `quill-delta-to-html` is marginally faster, likely due to the overhead of the code-block-container grouping transformer in the AST pipeline.
-- For a **realistic mixed-content document**, the renderer is **3.27x faster**.
+- **2-5x faster** across all scenarios, with no regressions.
+- The advantage **grows with formatting complexity** — 4.7x at 200 blocks of rich text — because the AST-based pipeline handles mark nesting more efficiently than direct string concatenation.
+- Code blocks show the smallest gain (**1.96x**) due to the overhead of the `codeBlockGrouper` transformer pass, but the `code-block-container` node override renders all lines in a single `<pre>` without per-line handler dispatch.
+- For a **realistic mixed-content document**, the renderer is **3.65x faster**.
 
 ## Methodology
 
