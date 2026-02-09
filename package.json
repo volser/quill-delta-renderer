@@ -1,0 +1,110 @@
+{
+  "name": "quill-delta-render",
+  "version": "0.1.0",
+  "description": "A framework-agnostic, AST-based engine for converting Quill Deltas into HTML, Markdown, React components, or any other format.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./core": {
+      "import": {
+        "types": "./dist/core/index.d.ts",
+        "default": "./dist/core/index.js"
+      },
+      "require": {
+        "types": "./dist/core/index.d.cts",
+        "default": "./dist/core/index.cjs"
+      }
+    },
+    "./common": {
+      "import": {
+        "types": "./dist/common/index.d.ts",
+        "default": "./dist/common/index.js"
+      },
+      "require": {
+        "types": "./dist/common/index.d.cts",
+        "default": "./dist/common/index.cjs"
+      }
+    },
+    "./renderers/html": {
+      "import": {
+        "types": "./dist/renderers/html/index.d.ts",
+        "default": "./dist/renderers/html/index.js"
+      },
+      "require": {
+        "types": "./dist/renderers/html/index.d.cts",
+        "default": "./dist/renderers/html/index.cjs"
+      }
+    },
+    "./renderers/react": {
+      "import": {
+        "types": "./dist/renderers/react/index.d.ts",
+        "default": "./dist/renderers/react/index.js"
+      },
+      "require": {
+        "types": "./dist/renderers/react/index.d.cts",
+        "default": "./dist/renderers/react/index.cjs"
+      }
+    },
+    "./renderers/markdown": {
+      "import": {
+        "types": "./dist/renderers/markdown/index.d.ts",
+        "default": "./dist/renderers/markdown/index.js"
+      },
+      "require": {
+        "types": "./dist/renderers/markdown/index.d.cts",
+        "default": "./dist/renderers/markdown/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "quill",
+    "delta",
+    "ast",
+    "html",
+    "react",
+    "markdown",
+    "renderer",
+    "parser",
+    "rich-text"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}
