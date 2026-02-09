@@ -24,54 +24,71 @@ npm install react react-dom
 
 ## Quick Start
 
-### HTML
+### One-liner (recommended)
+
+The fastest way to get started -- `parseQuillDelta` bundles the standard parser config and transformers:
 
 ```ts
-import { DeltaParser, applyTransformers } from 'quill-delta-render/core';
-import { listGrouper, codeBlockGrouper, tableGrouper } from 'quill-delta-render/common';
+import { parseQuillDelta } from 'quill-delta-render';
 import { SemanticHtmlRenderer } from 'quill-delta-render/renderers/html';
 
 const delta = { ops: [{ insert: 'Hello, world!\n' }] };
 
-const parser = new DeltaParser();
-const ast = parser.parse(delta);
-const transformed = applyTransformers(ast, [listGrouper, codeBlockGrouper, tableGrouper]);
+const ast = parseQuillDelta(delta);
+const html = new SemanticHtmlRenderer().render(ast);
+// => '<p>Hello, world!</p>'
+```
 
-const renderer = new SemanticHtmlRenderer();
-const html = renderer.render(transformed);
+### Step-by-step (full control)
+
+Use the individual pieces when you need custom parser config or transformers:
+
+```ts
+import { parseDelta, applyTransformers } from 'quill-delta-render/core';
+import { DEFAULT_BLOCK_ATTRIBUTES, listGrouper, codeBlockGrouper, tableGrouper } from 'quill-delta-render/common';
+import { SemanticHtmlRenderer } from 'quill-delta-render/renderers/html';
+
+const delta = { ops: [{ insert: 'Hello, world!\n' }] };
+
+const rawAst = parseDelta(delta, { blockAttributes: DEFAULT_BLOCK_ATTRIBUTES });
+const ast = applyTransformers(rawAst, [listGrouper, codeBlockGrouper, tableGrouper]);
+
+const html = new SemanticHtmlRenderer().render(ast);
 // => '<p>Hello, world!</p>'
 ```
 
 ### Markdown
 
 ```ts
+import { parseQuillDelta } from 'quill-delta-render';
 import { MarkdownRenderer } from 'quill-delta-render/renderers/markdown';
 
-const renderer = new MarkdownRenderer();
-const md = renderer.render(transformed);
+const ast = parseQuillDelta(delta);
+const md = new MarkdownRenderer().render(ast);
 ```
 
 ### React
 
 ```tsx
+import { parseQuillDelta } from 'quill-delta-render';
 import { ReactRenderer } from 'quill-delta-render/renderers/react';
 
-const renderer = new ReactRenderer();
-const element = renderer.render(transformed);
+const ast = parseQuillDelta(delta);
+const element = new ReactRenderer().render(ast);
 // Returns a ReactNode tree you can use directly in JSX
 ```
 
 ## Architecture
 
 ```
-Delta ops  ──▶  DeltaParser  ──▶  Raw AST  ──▶  Transformers  ──▶  Semantic AST  ──▶  Renderer  ──▶  Output
+Delta ops  ──▶  parseDelta()  ──▶  Raw AST  ──▶  Transformers  ──▶  Semantic AST  ──▶  Renderer  ──▶  Output
 ```
 
-1. **Parsing** -- `DeltaParser` converts flat Delta operations into a raw AST of `TNode` objects.
-2. **Transformation** -- Middleware functions reorganize the tree (e.g., grouping list items into lists, wrapping table cells into rows).
+1. **Parsing** -- `parseDelta()` converts flat Delta operations into a raw AST of `TNode` objects.
+2. **Transformation** -- Transformer functions reorganize the children array (e.g., grouping list items into lists, wrapping table cells into rows).
 3. **Rendering** -- A renderer walks the AST and produces the final output using its configured block/mark handlers.
 
-Each stage is decoupled. You can swap renderers, add custom transformers, or extend the parser independently.
+Each stage is decoupled. You can swap renderers, add custom transformers, or use a different parser independently.
 
 ## Subpath Exports
 
@@ -79,8 +96,8 @@ Import only what you need -- unused renderers are never bundled:
 
 | Import path | Contents |
 |---|---|
-| `quill-delta-render` | Everything (barrel) |
-| `quill-delta-render/core` | `DeltaParser`, `BaseRenderer`, `applyTransformers`, types |
+| `quill-delta-render` | Everything (barrel) including `parseQuillDelta` |
+| `quill-delta-render/core` | `parseDelta`, `DeltaParser`, `BaseRenderer`, `SimpleRenderer`, `applyTransformers`, types |
 | `quill-delta-render/common` | Transformers, sanitizers, shared utilities |
 | `quill-delta-render/renderers/html` | `SemanticHtmlRenderer`, `QuillHtmlRenderer` |
 | `quill-delta-render/renderers/markdown` | `MarkdownRenderer` |
@@ -129,32 +146,62 @@ new MarkdownRenderer({
 });
 ```
 
+### parseQuillDelta
+
+```ts
+parseQuillDelta(delta, {
+  extraBlockAttributes: { ... },   // Additional block attribute handlers
+  blockEmbeds: ['video'],          // Block-level embed types (default: ['video'])
+  extraTransformers: [myGrouper],  // Appended after standard transformers
+  transformers: [...],             // Replace standard transformers entirely
+});
+```
+
 ## Extensibility
 
 ### Custom Transformers
 
-Add your own middleware to reshape the AST before rendering:
+A transformer is a function that receives the root's children array and returns a new array. Use `applyTransformers` to run them against an AST:
 
 ```ts
 import type { TNode, Transformer } from 'quill-delta-render/core';
 
-const myTransformer: Transformer = (nodes: TNode[]) => {
-  // modify, filter, or reorganize nodes
-  return nodes;
+const imageGrouper: Transformer = (children: TNode[]) => {
+  // group adjacent images into a gallery container
+  return groupImages(children);
 };
 
-const ast = applyTransformers(rawAst, [listGrouper, myTransformer]);
+const ast = applyTransformers(rawAst, [listGrouper, imageGrouper]);
+```
+
+Or pass them to `parseQuillDelta` via `extraTransformers`:
+
+```ts
+const ast = parseQuillDelta(delta, {
+  extraTransformers: [imageGrouper],
+});
 ```
 
 ### Custom Renderer
 
-Extend `BaseRenderer` to target any output format:
+For output formats that need HTML-style attribute collection (styles, classes, props), extend `BaseRenderer`:
 
 ```ts
 import { BaseRenderer } from 'quill-delta-render/core';
 
-class JsonRenderer extends BaseRenderer<object> {
+class JsonRenderer extends BaseRenderer<object, MyAttrs> {
   // implement abstract methods for your output format
+}
+```
+
+For simpler formats without attribute collection (plain text, Markdown-like), extend `SimpleRenderer` which requires only 2 abstract methods (`joinChildren` and `renderText`):
+
+```ts
+import { SimpleRenderer } from 'quill-delta-render/core';
+
+class PlainTextRenderer extends SimpleRenderer<string> {
+  protected joinChildren(children: string[]) { return children.join(''); }
+  protected renderText(text: string) { return text; }
 }
 ```
 
