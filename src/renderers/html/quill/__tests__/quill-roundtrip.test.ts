@@ -24,23 +24,19 @@ function normalizeOps(ops: Delta['ops']): Delta['ops'] {
 
 const containers: HTMLDivElement[] = [];
 
-function createQuill(): InstanceType<typeof Quill> {
-  const container = document.createElement('div');
-  document.body.appendChild(container);
-  containers.push(container);
-  return new Quill(container);
-}
-
 /**
  * Round-trip test: Delta → our renderer → HTML → Quill → Delta.
  *
  * Verifies that Quill can reconstruct the original delta from our HTML.
  */
 function assertRoundTrip(delta: Delta): void {
-  // Render with our renderer, then feed the HTML back to Quill
+  // Render with our renderer, set as initial HTML, init Quill on it
   const html = renderDelta(delta);
-  const quill = createQuill();
-  quill.clipboard.dangerouslyPasteHTML(html);
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  document.body.appendChild(container);
+  containers.push(container);
+  const quill = new Quill(container);
   const actualOps = quill.getContents().ops;
 
   expect(actualOps).toEqual(normalizeOps(delta.ops));
