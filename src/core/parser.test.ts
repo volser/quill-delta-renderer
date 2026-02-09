@@ -18,7 +18,10 @@ describe('parseDelta (pure function)', () => {
   it('should parse block attributes via config', () => {
     const config: ParserConfig = {
       blockAttributes: {
-        header: (value) => ({ blockType: 'header', blockAttrs: { header: value } }),
+        header: (value) => ({
+          blockType: 'header',
+          blockAttrs: { header: value },
+        }),
       },
     };
     const delta: Delta = {
@@ -139,7 +142,10 @@ describe('DeltaParser', () => {
     it('should use a configured handler to set block type and attrs', () => {
       const config: ParserConfig = {
         blockAttributes: {
-          header: (value) => ({ blockType: 'header', blockAttrs: { header: value } }),
+          header: (value) => ({
+            blockType: 'header',
+            blockAttrs: { header: value },
+          }),
         },
       };
 
@@ -185,7 +191,10 @@ describe('DeltaParser', () => {
     it('should exclude block attributes from inline text nodes', () => {
       const config: ParserConfig = {
         blockAttributes: {
-          list: (value) => ({ blockType: 'list-item', blockAttrs: { list: value } }),
+          list: (value) => ({
+            blockType: 'list-item',
+            blockAttrs: { list: value },
+          }),
         },
       };
 

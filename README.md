@@ -45,13 +45,22 @@ Use the individual pieces when you need custom parser config or transformers:
 
 ```ts
 import { parseDelta, applyTransformers } from 'quill-delta-render/core';
-import { DEFAULT_BLOCK_ATTRIBUTES, listGrouper, codeBlockGrouper, tableGrouper } from 'quill-delta-render/common';
+import {
+  DEFAULT_BLOCK_ATTRIBUTES,
+  listGrouper,
+  codeBlockGrouper,
+  tableGrouper,
+} from 'quill-delta-render/common';
 import { SemanticHtmlRenderer } from 'quill-delta-render/renderers/html';
 
 const delta = { ops: [{ insert: 'Hello, world!\n' }] };
 
 const rawAst = parseDelta(delta, { blockAttributes: DEFAULT_BLOCK_ATTRIBUTES });
-const ast = applyTransformers(rawAst, [listGrouper, codeBlockGrouper, tableGrouper]);
+const ast = applyTransformers(rawAst, [
+  listGrouper,
+  codeBlockGrouper,
+  tableGrouper,
+]);
 
 const html = new SemanticHtmlRenderer().render(ast);
 // => '<p>Hello, world!</p>'
@@ -94,14 +103,14 @@ Each stage is decoupled. You can swap renderers, add custom transformers, or use
 
 Import only what you need -- unused renderers are never bundled:
 
-| Import path | Contents |
-|---|---|
-| `quill-delta-render` | Everything (barrel) including `parseQuillDelta` |
-| `quill-delta-render/core` | `parseDelta`, `DeltaParser`, `BaseRenderer`, `SimpleRenderer`, `applyTransformers`, types |
-| `quill-delta-render/common` | Transformers, sanitizers, shared utilities |
-| `quill-delta-render/renderers/html` | `SemanticHtmlRenderer`, `QuillHtmlRenderer` |
-| `quill-delta-render/renderers/markdown` | `MarkdownRenderer` |
-| `quill-delta-render/renderers/react` | `ReactRenderer` |
+| Import path                             | Contents                                                                                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `quill-delta-render`                    | Everything (barrel) including `parseQuillDelta`                                           |
+| `quill-delta-render/core`               | `parseDelta`, `DeltaParser`, `BaseRenderer`, `SimpleRenderer`, `applyTransformers`, types |
+| `quill-delta-render/common`             | Transformers, sanitizers, shared utilities                                                |
+| `quill-delta-render/renderers/html`     | `SemanticHtmlRenderer`, `QuillHtmlRenderer`                                               |
+| `quill-delta-render/renderers/markdown` | `MarkdownRenderer`                                                                        |
+| `quill-delta-render/renderers/react`    | `ReactRenderer`                                                                           |
 
 ## Configuration
 
@@ -111,13 +120,15 @@ All renderers accept an optional config object. Every option has a sensible defa
 
 ```ts
 new SemanticHtmlRenderer({
-  classPrefix: 'ql',          // CSS class prefix (default: 'ql')
-  paragraphTag: 'p',          // Tag for paragraphs (default: 'p')
-  linkTarget: '_blank',       // Link target attribute (default: '_blank')
-  linkRel: 'noopener',        // Link rel attribute
-  inlineStyles: false,         // Use inline styles instead of classes
-  encodeHtml: true,           // HTML-encode text content (default: true)
-  customTag: (fmt, node) => { /* return custom tag or undefined */ },
+  classPrefix: 'ql', // CSS class prefix (default: 'ql')
+  paragraphTag: 'p', // Tag for paragraphs (default: 'p')
+  linkTarget: '_blank', // Link target attribute (default: '_blank')
+  linkRel: 'noopener', // Link rel attribute
+  inlineStyles: false, // Use inline styles instead of classes
+  encodeHtml: true, // HTML-encode text content (default: true)
+  customTag: (fmt, node) => {
+    /* return custom tag or undefined */
+  },
 });
 ```
 
@@ -125,11 +136,14 @@ new SemanticHtmlRenderer({
 
 ```tsx
 new ReactRenderer({
-  classPrefix: 'ql',          // CSS class prefix (default: 'ql')
-  linkTarget: '_blank',       // Link target attribute (default: '_blank')
-  linkRel: 'noopener',        // Link rel attribute
-  customTag: (fmt, node) => { /* return custom tag or undefined */ },
-  components: {               // Override block-level rendering with custom components
+  classPrefix: 'ql', // CSS class prefix (default: 'ql')
+  linkTarget: '_blank', // Link target attribute (default: '_blank')
+  linkRel: 'noopener', // Link rel attribute
+  customTag: (fmt, node) => {
+    /* return custom tag or undefined */
+  },
+  components: {
+    // Override block-level rendering with custom components
     paragraph: ({ children }) => <div>{children}</div>,
     image: ({ node }) => <CustomImage src={node.data} />,
   },
@@ -138,13 +152,13 @@ new ReactRenderer({
 
 ### MarkdownRenderer
 
-```ts
+````ts
 new MarkdownRenderer({
   singleLineBreakForPTag: false, // Single \n between paragraphs (default: false)
-  bulletChar: '*',               // Unordered list character (default: '*')
-  fenceChar: '```',              // Fenced code block delimiter (default: '```')
+  bulletChar: '*', // Unordered list character (default: '*')
+  fenceChar: '```', // Fenced code block delimiter (default: '```')
 });
-```
+````
 
 ### parseQuillDelta
 
@@ -200,8 +214,12 @@ For simpler formats without attribute collection (plain text, Markdown-like), ex
 import { SimpleRenderer } from 'quill-delta-render/core';
 
 class PlainTextRenderer extends SimpleRenderer<string> {
-  protected joinChildren(children: string[]) { return children.join(''); }
-  protected renderText(text: string) { return text; }
+  protected joinChildren(children: string[]) {
+    return children.join('');
+  }
+  protected renderText(text: string) {
+    return text;
+  }
 }
 ```
 
