@@ -1,5 +1,5 @@
-import type { TNode } from '../../../core/ast-types';
-import type { InlineStyleConverter } from './types/semantic-html-config';
+import type { TNode } from '../../../../core/ast-types';
+import type { InlineStyleConverter } from '../types/semantic-html-config';
 
 /** Default inline style converters used when `inlineStyles: true`. */
 export const DEFAULT_INLINE_STYLES: Record<string, InlineStyleConverter> = {

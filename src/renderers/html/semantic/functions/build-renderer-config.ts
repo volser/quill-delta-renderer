@@ -1,6 +1,6 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorities';
 import type { RendererConfig } from '../../../../core/ast-types';
-import { DEFAULT_INLINE_STYLES } from '../default-inline-styles';
+import { DEFAULT_INLINE_STYLES } from '../consts/default-inline-styles';
 import type { ResolvedConfig } from '../types/resolved-config';
 import type { InlineStyleConverter } from '../types/semantic-html-config';
 import { buildAttrString } from './build-attr-string';
