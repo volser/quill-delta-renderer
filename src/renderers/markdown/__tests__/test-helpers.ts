@@ -12,6 +12,11 @@ export const PARSER_CONFIG = {
   blockEmbeds: ['video', 'divider'],
 };
 
+/** Shorthand: create a Delta from ops. */
+export function d(...ops: Delta['ops']): Delta {
+  return { ops };
+}
+
 function parseDelta(delta: Delta) {
   return new DeltaParser(delta, PARSER_CONFIG)
     .use(listGrouper)
