@@ -1,6 +1,7 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../common/default-mark-priorities';
 import type { RendererConfig, TNode } from '../../../core/ast-types';
 import { BaseHtmlRenderer, escapeHtml } from '../base-html-renderer';
+import { DEFAULT_INLINE_STYLES } from './default-inline-styles';
 import type {
   AfterRenderCallback,
   BeforeRenderCallback,
@@ -10,7 +11,6 @@ import type {
   RenderGroupType,
   SemanticHtmlConfig,
 } from './semantic-html-config';
-import { DEFAULT_INLINE_STYLES } from './semantic-html-config';
 
 // ─── Resolved Config (all defaults applied) ─────────────────────────────────
 
