@@ -1,70 +1,11 @@
-import { DEFAULT_MARK_PRIORITIES } from '../../common/default-mark-priorities';
-import type { BlockDescriptor, RendererConfig, TNode } from '../../core/ast-types';
+import type { BlockDescriptor, TNode } from '../../core/ast-types';
 import { BaseRenderer } from '../../core/base-renderer';
+import { buildRendererConfig } from './functions/build-renderer-config';
+import { padListItemContent } from './functions/pad-list-item-content';
+import { resolveCodeBlockLanguage } from './functions/resolve-code-block-language';
+import { resolveConfig } from './functions/resolve-config';
+import { resolveListType } from './functions/resolve-list-type';
 import type { MarkdownConfig, ResolvedMarkdownConfig } from './types/markdown-config';
-import { resolveMarkdownConfig } from './types/markdown-config';
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Extract the programming language from a code-block node's attributes.
- *
- * Handles both string values (`'javascript'`) and nested objects
- * (`{ 'code-block': 'javascript' }`).
- *
- * Returns `''` for generic / `'plain'` / `true` code blocks.
- */
-function resolveCodeBlockLanguage(node: TNode): string {
-  const lang = node.attributes['code-block'];
-
-  if (typeof lang === 'string' && lang !== 'true' && lang !== 'plain') {
-    return lang;
-  }
-
-  if (typeof lang === 'object' && lang !== null) {
-    const inner = (lang as Record<string, unknown>)['code-block'];
-    if (typeof inner === 'string' && inner !== 'true' && inner !== 'plain') {
-      return inner;
-    }
-  }
-
-  return '';
-}
-
-/**
- * Resolve the list type from a list-item node's attributes.
- *
- * Supports both simple (`'bullet'`) and nested (`{ list: 'bullet' }`) formats.
- */
-function resolveListType(node: TNode): string {
-  const listAttr = node.attributes.list;
-  if (typeof listAttr === 'string') return listAttr;
-
-  if (typeof listAttr === 'object' && listAttr !== null) {
-    const inner = (listAttr as Record<string, unknown>).list;
-    if (typeof inner === 'string') return inner;
-  }
-
-  return 'bullet';
-}
-
-/**
- * Handle multi-line list item content by padding continuation lines.
- *
- * Matches the behavior of the existing `getContentForListItem()` function.
- */
-function padListItemContent(content: string, padding: string): string {
-  const lines = content.split(/\r?\n/);
-
-  return lines.reduce((text, line, idx) => {
-    if (line.trim()) {
-      text += (idx > 0 ? padding : '') + line;
-    }
-    return text;
-  }, '');
-}
-
-// ─── Renderer ───────────────────────────────────────────────────────────────
 
 /**
  * Renders an AST into Markdown text.
@@ -110,86 +51,8 @@ export class MarkdownRenderer extends BaseRenderer<string> {
   private readonly cfg: ResolvedMarkdownConfig;
 
   constructor(config?: MarkdownConfig) {
-    const cfg = resolveMarkdownConfig(config);
-
-    const rendererConfig: RendererConfig<string> = {
-      markPriorities: DEFAULT_MARK_PRIORITIES,
-
-      blocks: {
-        paragraph: (_node, children) => {
-          return children || '';
-        },
-
-        header: (node, children) => {
-          const level = node.attributes.header as number;
-          const prefix = '#'.repeat(level);
-          return `${prefix} ${children}`;
-        },
-
-        blockquote: (_node, children) => {
-          const content = children || '';
-          return content
-            .split('\n')
-            .map((line) => `> ${line}`)
-            .join('\n');
-        },
-
-        'code-block': (node, children) => {
-          // Standalone code block (when used without codeBlockGrouper).
-          // Within a code-block-container this is handled by the override.
-          const lang = resolveCodeBlockLanguage(node);
-          return `${cfg.fenceChar}${lang}\n${children}\n${cfg.fenceChar}`;
-        },
-
-        image: (node) => {
-          const data = node.data;
-          const src =
-            typeof data === 'string'
-              ? data
-              : String((data as Record<string, unknown>)?.url ?? data ?? '');
-          const alt = (node.attributes.alt as string) ?? '';
-          return `![${alt}](${src})`;
-        },
-
-        video: (node) => {
-          const data = node.data;
-          return typeof data === 'string'
-            ? data
-            : String((data as Record<string, unknown>)?.url ?? data ?? '');
-        },
-
-        divider: () => cfg.hrString,
-
-        formula: (node) => {
-          const data = node.data as string | Record<string, unknown>;
-          return typeof data === 'string' ? data : String(data);
-        },
-
-        // Table blocks — basic passthrough rendering.
-        // A full table→markdown converter can be added via extendBlock().
-        table: (_node, children) => children,
-        'table-row': (_node, children) => children,
-        'table-cell': (_node, children) => children,
-      },
-
-      marks: {
-        bold: (content) => `**${content}**`,
-        italic: (content) => `_${content}_`,
-        strike: (content) => `~~${content}~~`,
-        code: (content) => `\`${content}\``,
-        link: (content, value) => `[${content}](${String(value)})`,
-
-        // No native Markdown equivalents — pass content through
-        underline: (content) => content as string,
-        script: (content) => content as string,
-        color: (content) => content as string,
-        background: (content) => content as string,
-        font: (content) => content as string,
-        size: (content) => content as string,
-      },
-    };
-
-    super(rendererConfig);
+    const cfg = resolveConfig(config);
+    super(buildRendererConfig(cfg));
     this.cfg = cfg;
   }
 
@@ -226,18 +89,11 @@ export class MarkdownRenderer extends BaseRenderer<string> {
 
   // ─── Code Blocks ──────────────────────────────────────────────────────────
 
-  /**
-   * Render a `code-block-container` produced by the `codeBlockGrouper` transformer.
-   *
-   * Collects the raw text of each child `code-block` node and wraps them
-   * in a fenced code block with an optional language tag.
-   */
   private renderCodeBlockContainer(node: TNode): string {
     const firstChild = node.children[0];
     const lang = firstChild ? resolveCodeBlockLanguage(firstChild) : '';
 
     const lines = node.children.map((child) => {
-      // Extract raw text from code-block children — skip mark processing
       return child.children.map((c) => String(c.data ?? '')).join('');
     });
 
@@ -246,14 +102,6 @@ export class MarkdownRenderer extends BaseRenderer<string> {
 
   // ─── Lists ────────────────────────────────────────────────────────────────
 
-  /**
-   * Render a `list` node and all of its children recursively.
-   *
-   * Each list-item determines its own prefix based on its `list` attribute
-   * (not the parent container's type), allowing mixed-type lists.
-   *
-   * Ordered items are numbered sequentially within each list container.
-   */
   private renderList(node: TNode, depth: number): string {
     let orderedIndex = 0;
     const items: string[] = [];
@@ -281,17 +129,14 @@ export class MarkdownRenderer extends BaseRenderer<string> {
     const indent = this.cfg.indentString.repeat(depth);
     const prefix = this.getListPrefix(listType, orderedIndex);
 
-    // Separate inline content from nested sub-lists
     const inlineChildren = node.children.filter((c) => c.type !== 'list');
     const nestedLists = node.children.filter((c) => c.type === 'list');
 
-    // Render inline content and pad continuation lines
     const rawContent = inlineChildren.map((c) => this.renderNode(c)).join('');
     const content = padListItemContent(rawContent, indent + this.cfg.indentString);
 
     let result = `${indent}${prefix}${content}`;
 
-    // Render nested sub-lists at the next depth level
     for (const nestedList of nestedLists) {
       result += `\n${this.renderList(nestedList, depth + 1)}`;
     }
@@ -335,12 +180,10 @@ export class MarkdownRenderer extends BaseRenderer<string> {
   }
 
   protected wrapWithAttrs(content: string, _attrs: unknown): string {
-    // Markdown has no inline attribute styling — return content as-is
     return content;
   }
 
   protected renderSimpleTag(_tag: string, content: string, _collectedAttrs?: unknown): string {
-    // Markdown doesn't use HTML tags — return content as-is
     return content;
   }
 
@@ -350,7 +193,6 @@ export class MarkdownRenderer extends BaseRenderer<string> {
     childrenOutput: string,
     _resolvedAttrs: unknown,
   ): string {
-    // No declarative block descriptors used in markdown — return children
     return childrenOutput;
   }
 }

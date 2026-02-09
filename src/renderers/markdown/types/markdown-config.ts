@@ -54,18 +54,3 @@ export interface ResolvedMarkdownConfig {
   hrString: string;
   fenceChar: string;
 }
-
-/**
- * Apply defaults to produce a fully resolved config.
- * @internal
- */
-export function resolveMarkdownConfig(config?: MarkdownConfig): ResolvedMarkdownConfig {
-  return {
-    singleLineBreakForPTag: config?.singleLineBreakForPTag ?? false,
-    bulletChar: config?.bulletChar ?? '*',
-    bulletPadding: config?.bulletPadding ?? '   ',
-    indentString: config?.indentString ?? '    ',
-    hrString: config?.hrString ?? '* * *',
-    fenceChar: config?.fenceChar ?? '```',
-  };
-}
