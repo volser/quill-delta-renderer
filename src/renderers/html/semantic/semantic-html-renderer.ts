@@ -1,15 +1,8 @@
-import type { TNode } from '../../../core/ast-types';
 import { BaseHtmlRenderer, escapeHtml } from '../base-html-renderer';
 import { buildRendererConfig } from './functions/build-renderer-config';
-import { getGroupType } from './functions/get-group-type';
 import { resolveConfig } from './functions/resolve-config';
 import type { ResolvedConfig } from './types/resolved-config';
-import type {
-  AfterRenderCallback,
-  BeforeRenderCallback,
-  CustomBlotRenderer,
-  SemanticHtmlConfig,
-} from './types/semantic-html-config';
+import type { SemanticHtmlConfig } from './types/semantic-html-config';
 
 /**
  * Renders an AST into clean, configurable HTML.
@@ -41,77 +34,11 @@ import type {
  */
 export class SemanticHtmlRenderer extends BaseHtmlRenderer {
   private readonly cfg: ResolvedConfig;
-  private beforeRenderCb: BeforeRenderCallback | undefined;
-  private afterRenderCb: AfterRenderCallback | undefined;
-  private customBlotRenderer: CustomBlotRenderer | undefined;
 
   constructor(config?: SemanticHtmlConfig) {
     const cfg = resolveConfig(config);
     super(buildRendererConfig(cfg));
     this.cfg = cfg;
-  }
-
-  // ─── Hooks ──────────────────────────────────────────────────────────────
-
-  /**
-   * Register a callback called before rendering each block-level group.
-   * If the callback returns a non-empty string, it replaces the default output.
-   */
-  beforeRender(cb: BeforeRenderCallback): void {
-    this.beforeRenderCb = cb;
-  }
-
-  /**
-   * Register a callback called after rendering each block-level group.
-   * The callback receives the generated HTML and can modify it.
-   */
-  afterRender(cb: AfterRenderCallback): void {
-    this.afterRenderCb = cb;
-  }
-
-  /**
-   * Register a callback for rendering custom embed types (blots).
-   * Called for embed nodes that have no built-in block handler.
-   */
-  renderCustomWith(cb: CustomBlotRenderer): void {
-    this.customBlotRenderer = cb;
-  }
-
-  // ─── Override renderNode for hooks and custom blots ─────────────────────
-
-  protected override renderNode(node: TNode): string {
-    if (node.type === 'root') {
-      return this.renderChildren(node);
-    }
-
-    if (node.type === 'text') {
-      return this.renderTextNode(node);
-    }
-
-    // Custom blot fallback for unknown embed types
-    if (!this.blocks[node.type] && this.customBlotRenderer) {
-      return this.customBlotRenderer(node, null);
-    }
-
-    const groupType = getGroupType(node);
-
-    // Before-render hook — can replace output entirely
-    if (this.beforeRenderCb && groupType) {
-      const replaced = this.beforeRenderCb(groupType, node);
-      if (replaced) {
-        return this.afterRenderCb ? this.afterRenderCb(groupType, replaced) : replaced;
-      }
-    }
-
-    // Delegate to base class for standard block/mark rendering
-    let html = super.renderNode(node);
-
-    // After-render hook
-    if (this.afterRenderCb && groupType) {
-      html = this.afterRenderCb(groupType, html);
-    }
-
-    return html;
   }
 
   // ─── Override renderText for encodeHtml=false ───────────────────────────

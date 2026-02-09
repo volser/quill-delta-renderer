@@ -2,10 +2,12 @@ import { type ComponentType, createElement, type ReactNode } from 'react';
 import { DEFAULT_MARK_PRIORITIES } from '../../../common/default-mark-priorities';
 import type { RendererConfig, TNode } from '../../../core/ast-types';
 import {
+  buildCodeBlockClassName,
   resolveCheckedState,
   resolveCodeBlockMeta,
   resolveLinkMeta,
 } from '../../common/resolve-block-meta';
+import { resolveCodeBlockLines } from '../../common/resolve-code-block-lines';
 import {
   resolveFormulaText,
   resolveImageData,
@@ -54,6 +56,18 @@ function resolveTag(
   return cfg.customTag?.(format, node) ?? defaultTag;
 }
 
+// ─── Node Override Helpers ─────────────────────────────────────────────────
+
+function renderCodeBlockContainer(node: TNode, cfg: ResolvedReactConfig): ReactNode {
+  const { language, lines } = resolveCodeBlockLines(node);
+  const className = buildCodeBlockClassName(language, cfg.classPrefix);
+
+  const linesWithNewlines = lines.map((text, i) => (i < lines.length - 1 ? `${text}\n` : text));
+
+  const codeElement = createElement('code', { className }, ...linesWithNewlines);
+  return createElement('pre', null, codeElement);
+}
+
 // ─── Builder ────────────────────────────────────────────────────────────────
 
 /**
@@ -69,12 +83,19 @@ function resolveTag(
  *
  * Color and background are defined as `attributors` — they contribute
  * styles to the nearest element mark rather than wrapping.
+ *
+ * Node overrides handle `code-block-container` which needs custom rendering
+ * not expressible as a simple block handler.
  */
 export function buildRendererConfig(
   cfg: ResolvedReactConfig,
 ): RendererConfig<ReactNode, ReactProps> {
   return {
     markPriorities: DEFAULT_MARK_PRIORITIES,
+
+    nodeOverrides: {
+      'code-block-container': (node) => renderCodeBlockContainer(node, cfg),
+    },
 
     blocks: {
       paragraph: (node, children) => {

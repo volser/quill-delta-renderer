@@ -1,5 +1,10 @@
 import type { TNode } from '../../../../core/ast-types';
-import type { InlineStyleOverrides } from './semantic-html-config';
+import type {
+  AfterRenderCallback,
+  BeforeRenderCallback,
+  CustomBlotRenderer,
+  InlineStyleOverrides,
+} from './semantic-html-config';
 
 /**
  * Internal resolved config — all defaults applied, ready for use
@@ -21,4 +26,7 @@ export interface ResolvedConfig {
   customTagAttributes: ((node: TNode) => Record<string, string> | undefined) | undefined;
   customCssClasses: ((node: TNode) => string | string[] | undefined) | undefined;
   customCssStyles: ((node: TNode) => string | string[] | undefined) | undefined;
+  beforeRender: BeforeRenderCallback | undefined;
+  afterRender: AfterRenderCallback | undefined;
+  customBlotRenderer: CustomBlotRenderer | undefined;
 }

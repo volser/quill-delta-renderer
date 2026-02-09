@@ -30,5 +30,8 @@ export function resolveConfig(config?: SemanticHtmlConfig): ResolvedConfig {
     customTagAttributes: c.customTagAttributes,
     customCssClasses: c.customCssClasses,
     customCssStyles: c.customCssStyles,
+    beforeRender: c.beforeRender,
+    afterRender: c.afterRender,
+    customBlotRenderer: c.customBlotRenderer,
   };
 }

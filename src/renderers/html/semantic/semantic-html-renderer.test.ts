@@ -8,9 +8,8 @@ const QUILL_CONFIG = { blockAttributes: DEFAULT_BLOCK_ATTRIBUTES };
 describe('SemanticHtmlRenderer', () => {
   describe('hooks: beforeRender', () => {
     it('should call beforeRender with groupType and node', () => {
-      const renderer = new SemanticHtmlRenderer();
       const beforeCb = vi.fn().mockReturnValue(null);
-      renderer.beforeRender(beforeCb);
+      const renderer = new SemanticHtmlRenderer({ beforeRender: beforeCb });
 
       const ast = new DeltaParser({ ops: [{ insert: 'text\n' }] }, QUILL_CONFIG).toAST();
       renderer.render(ast);
@@ -18,8 +17,9 @@ describe('SemanticHtmlRenderer', () => {
     });
 
     it('should replace output when beforeRender returns a string', () => {
-      const renderer = new SemanticHtmlRenderer();
-      renderer.beforeRender(() => '<custom>replaced</custom>');
+      const renderer = new SemanticHtmlRenderer({
+        beforeRender: () => '<custom>replaced</custom>',
+      });
 
       const ast = new DeltaParser({ ops: [{ insert: 'text\n' }] }, QUILL_CONFIG).toAST();
       expect(renderer.render(ast)).toContain('<custom>replaced</custom>');
@@ -28,9 +28,8 @@ describe('SemanticHtmlRenderer', () => {
 
   describe('hooks: afterRender', () => {
     it('should call afterRender with groupType and html', () => {
-      const renderer = new SemanticHtmlRenderer();
       const afterCb = vi.fn().mockImplementation((_type: string, html: string) => html);
-      renderer.afterRender(afterCb);
+      const renderer = new SemanticHtmlRenderer({ afterRender: afterCb });
 
       const ast = new DeltaParser({ ops: [{ insert: 'text\n' }] }, QUILL_CONFIG).toAST();
       renderer.render(ast);
@@ -38,23 +37,25 @@ describe('SemanticHtmlRenderer', () => {
     });
 
     it('should allow afterRender to modify output', () => {
-      const renderer = new SemanticHtmlRenderer();
-      renderer.afterRender((_type, html) => `<wrapper>${html}</wrapper>`);
+      const renderer = new SemanticHtmlRenderer({
+        afterRender: (_type, html) => `<wrapper>${html}</wrapper>`,
+      });
 
       const ast = new DeltaParser({ ops: [{ insert: 'text\n' }] }, QUILL_CONFIG).toAST();
       expect(renderer.render(ast)).toContain('<wrapper>');
     });
   });
 
-  describe('hooks: renderCustomWith', () => {
+  describe('hooks: customBlotRenderer', () => {
     it('should render custom embeds using the callback', () => {
-      const renderer = new SemanticHtmlRenderer();
-      renderer.renderCustomWith((node) => {
-        if (node.type === 'myEmbed') {
-          const data = node.data as Record<string, unknown>;
-          return `<div class="my-embed">${data.value}</div>`;
-        }
-        return '';
+      const renderer = new SemanticHtmlRenderer({
+        customBlotRenderer: (node) => {
+          if (node.type === 'myEmbed') {
+            const data = node.data as Record<string, unknown>;
+            return `<div class="my-embed">${data.value}</div>`;
+          }
+          return '';
+        },
       });
 
       const ast = new DeltaParser(

@@ -1,7 +1,96 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../common/default-mark-priorities';
+import type { NodeOverrideContext, TNode } from '../../../core/ast-types';
 import type { SimpleRendererConfig } from '../../../core/simple-renderer';
+import { resolveCodeBlockLines } from '../../common/resolve-code-block-lines';
 import type { ResolvedMarkdownConfig } from '../types/markdown-config';
+import { padListItemContent } from './pad-list-item-content';
 import { resolveCodeBlockLanguage } from './resolve-code-block-language';
+import { resolveListType } from './resolve-list-type';
+
+// ─── Node Override Helpers ─────────────────────────────────────────────────
+
+function renderRoot(node: TNode, ctx: NodeOverrideContext<string>): string {
+  const parts = node.children.map((child) => ctx.renderNode(child));
+
+  // Trim trailing empty parts (from trailing newlines in the delta)
+  while (parts.length > 0 && parts[parts.length - 1] === '') {
+    parts.pop();
+  }
+
+  return parts.join('\n');
+}
+
+function renderCodeBlockContainer(node: TNode, cfg: ResolvedMarkdownConfig): string {
+  const { language, lines } = resolveCodeBlockLines(node);
+  const lang = language && language !== 'plain' ? language : '';
+  return `${cfg.fenceChar}${lang}\n${lines.join('\n')}\n${cfg.fenceChar}`;
+}
+
+function renderListNode(
+  node: TNode,
+  depth: number,
+  cfg: ResolvedMarkdownConfig,
+  renderNode: (child: TNode) => string,
+): string {
+  let orderedIndex = 0;
+  const items: string[] = [];
+
+  for (const child of node.children) {
+    if (child.type !== 'list-item') continue;
+
+    const listType = resolveListType(child);
+    if (listType === 'ordered') {
+      orderedIndex++;
+    }
+
+    items.push(renderListItem(child, listType, orderedIndex, depth, cfg, renderNode));
+  }
+
+  return items.join('\n');
+}
+
+function renderListItem(
+  node: TNode,
+  listType: string,
+  orderedIndex: number,
+  depth: number,
+  cfg: ResolvedMarkdownConfig,
+  renderNode: (child: TNode) => string,
+): string {
+  const indent = cfg.indentString.repeat(depth);
+  const prefix = getListPrefix(listType, orderedIndex, cfg);
+
+  const inlineChildren = node.children.filter((c) => c.type !== 'list');
+  const nestedLists = node.children.filter((c) => c.type === 'list');
+
+  const rawContent = inlineChildren.map(renderNode).join('');
+  const content = padListItemContent(rawContent, indent + cfg.indentString);
+
+  let result = `${indent}${prefix}${content}`;
+
+  for (const nestedList of nestedLists) {
+    result += `\n${renderListNode(nestedList, depth + 1, cfg, renderNode)}`;
+  }
+
+  return result;
+}
+
+function getListPrefix(
+  listType: string,
+  orderedIndex: number,
+  cfg: ResolvedMarkdownConfig,
+): string {
+  switch (listType) {
+    case 'ordered':
+      return `${orderedIndex}. `;
+    case 'checked':
+      return '- [x] ';
+    case 'unchecked':
+      return '- [ ] ';
+    default:
+      return `${cfg.bulletChar}${cfg.bulletPadding}`;
+  }
+}
 
 /**
  * Build a full `SimpleRendererConfig<string>` from the resolved markdown config.
@@ -9,10 +98,21 @@ import { resolveCodeBlockLanguage } from './resolve-code-block-language';
  * Defines all block handlers (paragraph, header, blockquote, code-block,
  * image, video, divider, formula, table pass-throughs) and mark handlers
  * (bold, italic, strike, code, link + passthrough for unsupported marks).
+ *
+ * Node overrides handle `root`, `list`, and `code-block-container` — types
+ * that need custom traversal logic not expressible as simple block handlers.
  */
 export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRendererConfig<string> {
   return {
     markPriorities: DEFAULT_MARK_PRIORITIES,
+
+    nodeOverrides: {
+      root: (node, ctx) => renderRoot(node, ctx),
+
+      'code-block-container': (node) => renderCodeBlockContainer(node, cfg),
+
+      list: (node, ctx) => renderListNode(node, 0, cfg, ctx.renderNode),
+    },
 
     blocks: {
       paragraph: (_node, children) => {
@@ -35,7 +135,7 @@ export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRenderer
 
       'code-block': (node, children) => {
         // Standalone code block (when used without codeBlockGrouper).
-        // Within a code-block-container this is handled by the renderer override.
+        // Within a code-block-container this is handled by nodeOverrides.
         const lang = resolveCodeBlockLanguage(node);
         return `${cfg.fenceChar}${lang}\n${children}\n${cfg.fenceChar}`;
       },

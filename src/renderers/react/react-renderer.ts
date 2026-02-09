@@ -1,11 +1,9 @@
 import { cloneElement, createElement, isValidElement, type ReactNode } from 'react';
 import type { BlockDescriptor, TNode } from '../../core/ast-types';
 import { BaseRenderer } from '../../core/base-renderer';
-import { buildCodeBlockClassName } from '../common/resolve-block-meta';
-import { resolveCodeBlockLines } from '../common/resolve-code-block-lines';
 import { buildRendererConfig } from './functions/build-renderer-config';
 import { resolveConfig } from './functions/resolve-config';
-import type { ReactRendererConfig, ResolvedReactConfig } from './types/react-config';
+import type { ReactRendererConfig } from './types/react-config';
 import type { ReactProps } from './types/react-props';
 import { EMPTY_REACT_PROPS, hasReactProps, mergeReactProps } from './types/react-props';
 
@@ -60,44 +58,9 @@ function withKey(child: ReactNode, index: number): ReactNode {
  * ```
  */
 export class ReactRenderer extends BaseRenderer<ReactNode, ReactProps> {
-  private readonly cfg: ResolvedReactConfig;
-
   constructor(config?: ReactRendererConfig) {
     const cfg = resolveConfig(config);
     super(buildRendererConfig(cfg));
-    this.cfg = cfg;
-  }
-
-  // ─── Tree Traversal Overrides ───────────────────────────────────────────
-
-  protected override renderNode(node: TNode): ReactNode {
-    if (node.type === 'root') {
-      return this.renderChildren(node);
-    }
-
-    if (node.type === 'code-block-container') {
-      return this.renderCodeBlockContainer(node);
-    }
-
-    return super.renderNode(node);
-  }
-
-  // ─── Code Blocks ──────────────────────────────────────────────────────────
-
-  /**
-   * Render a `code-block-container` produced by the `codeBlockGrouper` transformer.
-   *
-   * Collects the raw text of each child `code-block` node and wraps them
-   * in `<pre><code>...</code></pre>` with an optional language class.
-   */
-  private renderCodeBlockContainer(node: TNode): ReactNode {
-    const { language, lines } = resolveCodeBlockLines(node);
-    const className = buildCodeBlockClassName(language, this.cfg.classPrefix);
-
-    const linesWithNewlines = lines.map((text, i) => (i < lines.length - 1 ? `${text}\n` : text));
-
-    const codeElement = createElement('code', { className }, ...linesWithNewlines);
-    return createElement('pre', null, codeElement);
   }
 
   // ─── BaseRenderer Abstract Methods ────────────────────────────────────────

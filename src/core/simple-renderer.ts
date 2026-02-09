@@ -1,4 +1,10 @@
-import type { BlockDescriptor, BlockHandler, MarkHandler, TNode } from './ast-types';
+import type {
+  BlockDescriptor,
+  BlockHandler,
+  MarkHandler,
+  NodeOverrideHandler,
+  TNode,
+} from './ast-types';
 import { BaseRenderer } from './base-renderer';
 
 /**
@@ -25,6 +31,16 @@ export interface SimpleRendererConfig<Output> {
   marks: Record<string, MarkHandler<Output>>;
   /** Optional mark nesting priorities. Higher value = wraps outer. */
   markPriorities?: Record<string, number>;
+  /**
+   * Override rendering for specific node types. Checked before the standard
+   * block handler lookup. See {@link import('./ast-types').NodeOverrideHandler}.
+   */
+  nodeOverrides?: Record<string, NodeOverrideHandler<Output>>;
+  /**
+   * Called for unknown node types with no block handler or nodeOverride.
+   * Return a value to use as output, or `undefined` to fall back to children.
+   */
+  onUnknownNode?: (node: TNode) => Output | undefined;
 }
 
 /**
@@ -65,6 +81,8 @@ export abstract class SimpleRenderer<Output> extends BaseRenderer<Output, unknow
       blocks: config.blocks,
       marks: config.marks,
       markPriorities: config.markPriorities,
+      nodeOverrides: config.nodeOverrides,
+      onUnknownNode: config.onUnknownNode,
     });
   }
 

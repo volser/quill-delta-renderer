@@ -110,4 +110,24 @@ export interface SemanticHtmlConfig {
 
   /** Provide custom CSS styles for a node. */
   customCssStyles?: (node: TNode) => string | string[] | undefined;
+
+  // ─── Rendering Hooks ──────────────────────────────────────────────────
+
+  /**
+   * Called before rendering each block-level group.
+   * If the callback returns a non-empty string, it replaces the default output.
+   */
+  beforeRender?: BeforeRenderCallback;
+
+  /**
+   * Called after rendering each block-level group.
+   * The callback receives the generated HTML and can modify it.
+   */
+  afterRender?: AfterRenderCallback;
+
+  /**
+   * Called for custom embed/blot nodes that have no built-in handler.
+   * Return the HTML string for this custom embed.
+   */
+  customBlotRenderer?: CustomBlotRenderer;
 }

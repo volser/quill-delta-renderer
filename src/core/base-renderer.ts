@@ -3,6 +3,7 @@ import type {
   BlockDescriptor,
   BlockHandler,
   MarkHandler,
+  NodeOverrideHandler,
   RendererConfig,
   SimpleTagMark,
   TNode,
@@ -34,7 +35,8 @@ function isBlockDescriptor<Output, Attrs>(
  * - Mark (inline formatting) priority sorting with attributor support
  * - Block attribute resolution
  * - Declarative block/mark descriptors
- * - Immutable extension via `withBlock()` / `withMark()` / `withAttributor()`
+ * - Node overrides for intercepting specific node types
+ * - Immutable extension via `withBlock()` / `withMark()` / `withAttributor()` / `withNodeOverride()`
  *
  * Subclasses must implement:
  * - `joinChildren()` — how to combine rendered children into a single output
@@ -57,6 +59,8 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
   protected attributors: Record<string, AttributorHandler<Attrs>>;
   protected markPriorities: Record<string, number>;
   protected blockAttributeResolvers: Array<(node: TNode) => Attrs>;
+  protected nodeOverrides: Record<string, NodeOverrideHandler<Output>>;
+  protected onUnknownNode: ((node: TNode) => Output | undefined) | undefined;
 
   constructor(config: RendererConfig<Output, Attrs>) {
     this.blocks = { ...config.blocks };
@@ -64,6 +68,8 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
     this.attributors = { ...config.attributors };
     this.markPriorities = { ...config.markPriorities };
     this.blockAttributeResolvers = [...(config.blockAttributeResolvers ?? [])];
+    this.nodeOverrides = { ...config.nodeOverrides };
+    this.onUnknownNode = config.onUnknownNode;
   }
 
   /**
@@ -126,6 +132,16 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
   }
 
   /**
+   * Return a shallow clone of this renderer with a node override added or replaced.
+   * The original renderer is not modified.
+   */
+  withNodeOverride(type: string, handler: NodeOverrideHandler<Output>): this {
+    const clone = this.shallowClone();
+    clone.nodeOverrides = { ...this.nodeOverrides, [type]: handler };
+    return clone;
+  }
+
+  /**
    * Create a shallow clone of this renderer instance, preserving the
    * prototype chain so that subclass overrides remain intact.
    */
@@ -138,6 +154,8 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
     clone.attributors = { ...this.attributors };
     clone.markPriorities = { ...this.markPriorities };
     clone.blockAttributeResolvers = [...this.blockAttributeResolvers];
+    clone.nodeOverrides = { ...this.nodeOverrides };
+    clone.onUnknownNode = this.onUnknownNode;
     return clone;
   }
 
@@ -203,6 +221,23 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
   // ─── Tree Traversal ────────────────────────────────────────────────────
 
   protected renderNode(node: TNode): Output {
+    // Node overrides — checked first, can override any node type including root/text
+    const override = this.nodeOverrides[node.type];
+    if (override) {
+      const defaultRender =
+        node.type === 'root'
+          ? () => this.renderChildren(node)
+          : node.type === 'text'
+            ? () => this.renderTextNode(node)
+            : () => this.defaultRenderBlock(node);
+
+      return override(node, {
+        defaultRender,
+        renderNode: (child: TNode) => this.renderNode(child),
+        renderChildren: (parent: TNode) => this.renderChildren(parent),
+      });
+    }
+
     // Root node: just render children
     if (node.type === 'root') {
       return this.renderChildren(node);
@@ -213,7 +248,15 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
       return this.renderTextNode(node);
     }
 
-    // Block-level node
+    return this.defaultRenderBlock(node);
+  }
+
+  /**
+   * Standard block rendering path: looks up the block handler,
+   * resolves attributes, and renders. Falls back to `onUnknownNode`
+   * if configured, then to rendering children only.
+   */
+  protected defaultRenderBlock(node: TNode): Output {
     const blockConfig = this.blocks[node.type];
     if (blockConfig) {
       const childrenOutput = this.renderChildren(node);
@@ -224,6 +267,12 @@ export abstract class BaseRenderer<Output, Attrs = unknown> {
       }
 
       return blockConfig(node, childrenOutput, resolvedAttrs);
+    }
+
+    // Unknown node hook — lets consumers handle custom/unknown types
+    if (this.onUnknownNode) {
+      const result = this.onUnknownNode(node);
+      if (result !== undefined) return result;
     }
 
     // Fallback: render children only (transparent wrapper)

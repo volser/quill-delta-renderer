@@ -1,5 +1,5 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorities';
-import type { MarkHandler, RendererConfig, TNode } from '../../../../core/ast-types';
+import type { BlockHandler, MarkHandler, RendererConfig, TNode } from '../../../../core/ast-types';
 import {
   resolveCheckedState,
   resolveCodeBlockMeta,
@@ -20,9 +20,10 @@ import {
 } from '../../common/simple-marks';
 import { DEFAULT_INLINE_STYLES } from '../consts/default-inline-styles';
 import type { ResolvedConfig } from '../types/resolved-config';
-import type { InlineStyleConverter } from '../types/semantic-html-config';
+import type { InlineStyleConverter, RenderGroupType } from '../types/semantic-html-config';
 import { buildBlockAttrs } from './build-block-attrs';
 import { encodeText } from './encode-text';
+import { getGroupType } from './get-group-type';
 import { resolveInlineStyle } from './resolve-inline-style';
 import { sanitizeUrl } from './sanitize-url';
 
@@ -55,6 +56,38 @@ function createClassOrStyleMark(
 }
 
 /**
+ * Wrap a block handler with beforeRender/afterRender hook logic.
+ * The hooks only fire when the node has a non-null groupType.
+ */
+function wrapWithHooks(
+  handler: BlockHandler<string, ResolvedAttrs>,
+  cfg: ResolvedConfig,
+): BlockHandler<string, ResolvedAttrs> {
+  if (!cfg.beforeRender && !cfg.afterRender) return handler;
+
+  return (node: TNode, children: string, resolvedAttrs: ResolvedAttrs): string => {
+    const groupType: RenderGroupType | null = getGroupType(node);
+
+    // Before-render hook — can replace output entirely
+    if (cfg.beforeRender && groupType) {
+      const replaced = cfg.beforeRender(groupType, node);
+      if (replaced) {
+        return cfg.afterRender ? cfg.afterRender(groupType, replaced) : replaced;
+      }
+    }
+
+    let html = handler(node, children, resolvedAttrs);
+
+    // After-render hook
+    if (cfg.afterRender && groupType) {
+      html = cfg.afterRender(groupType, html);
+    }
+
+    return html;
+  };
+}
+
+/**
  * Build a full `RendererConfig` from the resolved semantic config.
  * Defines all block handlers (paragraph, header, blockquote, code-block,
  * list, table, image, video, formula, mention) and mark handlers
@@ -62,12 +95,24 @@ function createClassOrStyleMark(
  *
  * Color and background are defined as `attributors` — they contribute
  * styles/classes to the nearest element mark rather than wrapping.
+ *
+ * If `beforeRender` or `afterRender` hooks are configured, each block
+ * handler is automatically wrapped with hook invocation logic.
  */
 export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string, ResolvedAttrs> {
+  /** Optionally wrap a block handler with hooks. */
+  const h = (handler: BlockHandler<string, ResolvedAttrs>) => wrapWithHooks(handler, cfg);
+
   return {
     markPriorities: DEFAULT_MARK_PRIORITIES,
+
+    // Wire customBlotRenderer as the generic onUnknownNode hook
+    onUnknownNode: cfg.customBlotRenderer
+      ? (node) => cfg.customBlotRenderer!(node, null)
+      : undefined,
+
     blocks: {
-      paragraph: (node, children) => {
+      paragraph: h((node, children) => {
         const tag = cfg.customTag?.('paragraph', node) ?? cfg.paragraphTag;
         if (!tag) {
           return children || '<br/>';
@@ -75,25 +120,25 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         const content = children || '<br/>';
         const attrStr = buildBlockAttrs(node, cfg);
         return `<${tag}${attrStr}>${content}</${tag}>`;
-      },
+      }),
 
-      header: (node, children) => {
+      header: h((node, children) => {
         const level = node.attributes.header as number;
         const defaultTag = `h${level}`;
         const tag = cfg.customTag?.('header', node) ?? defaultTag;
         const content = children || '<br/>';
         const attrStr = buildBlockAttrs(node, cfg);
         return `<${tag}${attrStr}>${content}</${tag}>`;
-      },
+      }),
 
-      blockquote: (node, children) => {
+      blockquote: h((node, children) => {
         const tag = cfg.customTag?.('blockquote', node) ?? 'blockquote';
         const content = children || '<br/>';
         const attrStr = buildBlockAttrs(node, cfg);
         return `<${tag}${attrStr}>${content}</${tag}>`;
-      },
+      }),
 
-      'code-block': (node, children) => {
+      'code-block': h((node, children) => {
         const tag = cfg.customTag?.('code-block', node) ?? 'pre';
         const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
 
@@ -105,9 +150,9 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         const content = children || '<br/>';
         const attrStr = buildBlockAttrs(node, cfg, [meta.className], undefined, extraAttrs);
         return `<${tag}${attrStr}>${content}</${tag}>`;
-      },
+      }),
 
-      'list-item': (node, children) => {
+      'list-item': h((node, children) => {
         const tag = cfg.customTag?.('list-item', node) ?? cfg.listItemTag;
         const content = children || '<br/>';
 
@@ -119,9 +164,9 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
 
         const attrStr = buildBlockAttrs(node, cfg, undefined, undefined, extraAttrs);
         return `<${tag}${attrStr}>${content}</${tag}>`;
-      },
+      }),
 
-      list: (node, children) => {
+      list: h((node, children) => {
         const listType = node.attributes.list as string;
         let tag: string;
         if (listType === 'ordered') {
@@ -130,17 +175,17 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
           tag = cfg.bulletListTag;
         }
         return `<${tag}>${children}</${tag}>`;
-      },
+      }),
 
-      table: (_node, children) => {
+      table: h((_node, children) => {
         return `<table><tbody>${children}</tbody></table>`;
-      },
+      }),
 
-      'table-row': (_node, children) => {
+      'table-row': h((_node, children) => {
         return `<tr>${children}</tr>`;
-      },
+      }),
 
-      'table-cell': (node, children) => {
+      'table-cell': h((node, children) => {
         const row = node.attributes.table as string | undefined;
         const extraAttrs: Record<string, string> = {};
         if (row) {
@@ -148,9 +193,9 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         }
         const attrStr = buildBlockAttrs(node, cfg, undefined, undefined, extraAttrs);
         return `<td${attrStr}>${children}</td>`;
-      },
+      }),
 
-      image: (node) => {
+      image: h((node) => {
         const src = sanitizeUrl(String(node.data), cfg);
         if (!src) return '';
         const alt = (node.attributes.alt as string) ?? '';
@@ -183,24 +228,24 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         }
 
         return imgTag;
-      },
+      }),
 
-      video: (node) => {
+      video: h((node) => {
         const rawSrc = resolveVideoSrc(node);
         if (!rawSrc) return '';
         const src = sanitizeUrl(rawSrc, cfg);
         if (!src) return '';
         const videoClass = `${cfg.classPrefix}-video`;
         return `<iframe class="${videoClass}" src="${encodeText(src, cfg)}" frameborder="0" allowfullscreen="true"></iframe>`;
-      },
+      }),
 
-      formula: (node) => {
+      formula: h((node) => {
         const formulaClass = `${cfg.classPrefix}-formula`;
         const text = resolveFormulaText(node);
         return `<span class="${formulaClass}">${encodeText(text, cfg)}</span>`;
-      },
+      }),
 
-      mention: (node) => {
+      mention: h((node) => {
         const mention = resolveMentionData(node);
 
         const attrs: Record<string, string> = {};
@@ -213,7 +258,7 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
         }
 
         return `<a${buildAttrString(attrs)}>${encodeText(mention.name, cfg)}</a>`;
-      },
+      }),
     },
 
     // ─── Element Marks (create wrapper elements) ─────────────────────

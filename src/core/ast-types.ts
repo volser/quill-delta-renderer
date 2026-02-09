@@ -240,6 +240,31 @@ export type AttributorHandler<Attrs> = (value: unknown, node: TNode) => Attrs;
 export type BlockAttributeResolver<Attrs> = (node: TNode) => Attrs;
 
 /**
+ * Context object passed to node override handlers, providing access to
+ * the renderer's traversal methods.
+ */
+export interface NodeOverrideContext<Output> {
+  /** Invoke the standard block/children rendering for the current node. */
+  defaultRender: () => Output;
+  /** Render an arbitrary child node through the full rendering pipeline. */
+  renderNode: (child: TNode) => Output;
+  /** Render all children of a node and join them into a single output. */
+  renderChildren: (node: TNode) => Output;
+}
+
+/**
+ * Handles rendering of a specific node type, with access to the default
+ * rendering path and child-rendering utilities as a fallback.
+ *
+ * @typeParam Output - The rendered output type (string, ReactNode, etc.)
+ *
+ * @param node - The AST node being rendered
+ * @param ctx - Context with `defaultRender`, `renderNode`, and `renderChildren`
+ * @returns The rendered output for this node
+ */
+export type NodeOverrideHandler<Output> = (node: TNode, ctx: NodeOverrideContext<Output>) => Output;
+
+/**
  * Configuration for a renderer — maps node types to block handlers
  * and attribute names to mark handlers.
  *
@@ -258,4 +283,21 @@ export interface RendererConfig<Output, Attrs = unknown> {
   markPriorities?: Record<string, number>;
   /** Block attribute resolvers — compute generic attrs for all blocks */
   blockAttributeResolvers?: BlockAttributeResolver<Attrs>[];
+  /**
+   * Override rendering for specific node types. Checked before the standard
+   * block handler lookup. The handler receives a `defaultRender` thunk
+   * for falling back to the standard rendering path.
+   */
+  nodeOverrides?: Record<string, NodeOverrideHandler<Output>>;
+
+  /**
+   * Called when the renderer encounters a node type with no block handler
+   * and no nodeOverride. Useful for diagnostics, logging, or rendering
+   * custom/unknown embed types.
+   *
+   * If the callback returns a value, it is used as the rendered output
+   * for the node. If it returns `undefined`, the default fallback
+   * (rendering children only) is used.
+   */
+  onUnknownNode?: (node: TNode) => Output | undefined;
 }

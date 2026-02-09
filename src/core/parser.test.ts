@@ -35,6 +35,14 @@ describe('parseDelta input validation', () => {
     expect(ast.type).toBe('root');
     expect(ast.children).toHaveLength(0);
   });
+
+  it('should throw TypeError for an empty embed object', () => {
+    const delta: Delta = { ops: [{ insert: {} as Record<string, unknown> }] };
+    expect(() => parseDelta(delta, EMPTY_CONFIG)).toThrow(TypeError);
+    expect(() => parseDelta(delta, EMPTY_CONFIG)).toThrow(
+      'parseEmbedOp: received an empty embed object with no type key',
+    );
+  });
 });
 
 describe('parseDelta (pure function)', () => {

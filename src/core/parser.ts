@@ -1,4 +1,17 @@
 import type { Attributes, Delta, ParserConfig, TNode, Transformer } from './ast-types';
+import { applyTransformers } from './transformer';
+
+// ─── Internal Accumulator ───────────────────────────────────────────────────
+
+/** Immutable parse state threaded through each op handler. */
+interface ParseState {
+  /** Completed block-level nodes. */
+  blocks: TNode[];
+  /** Inline nodes waiting for a newline to flush into a block. */
+  buffer: TNode[];
+}
+
+const EMPTY_STATE: ParseState = { blocks: [], buffer: [] };
 
 // ─── Pure Function API ──────────────────────────────────────────────────────
 
@@ -32,41 +45,32 @@ export function parseDelta(delta: Delta, config: ParserConfig): TNode {
   const blockAttributes = config.blockAttributes;
   const blockEmbeds = new Set(config.blockEmbeds ?? []);
 
-  const root: TNode = {
-    type: 'root',
-    attributes: {},
-    children: [],
-    isInline: false,
-  };
-
-  let inlineBuffer: TNode[] = [];
+  let state: ParseState = EMPTY_STATE;
 
   for (const op of delta.ops) {
     if (op.insert === undefined) continue;
 
     if (typeof op.insert === 'string') {
-      parseTextOp(op.insert, op.attributes ?? {}, inlineBuffer, root, blockAttributes);
+      state = processTextOp(state, op.insert, op.attributes ?? {}, blockAttributes);
     } else {
-      const embed = parseEmbedOp(op.insert, op.attributes ?? {});
-
-      if (blockEmbeds.has(embed.type)) {
-        if (inlineBuffer.length > 0) {
-          root.children.push(createBlock('paragraph', {}, inlineBuffer));
-          inlineBuffer.length = 0;
-        }
-        root.children.push(embed);
-      } else {
-        inlineBuffer.push(embed);
-      }
+      state = processEmbedOp(state, op.insert, op.attributes ?? {}, blockEmbeds);
     }
   }
 
-  if (inlineBuffer.length > 0) {
-    root.children.push(createBlock('paragraph', {}, inlineBuffer));
-    inlineBuffer = [];
+  // Flush any remaining inline content as a trailing paragraph
+  if (state.buffer.length > 0) {
+    state = {
+      blocks: [...state.blocks, createBlock('paragraph', {}, state.buffer)],
+      buffer: [],
+    };
   }
 
-  return root;
+  return {
+    type: 'root',
+    attributes: {},
+    children: state.blocks,
+    isInline: false,
+  };
 }
 
 // ─── Class API (delegates to parseDelta) ────────────────────────────────────
@@ -108,41 +112,59 @@ export class DeltaParser {
    * Parse the delta into a raw AST, then apply all registered transformers.
    */
   toAST(): TNode {
-    const root = parseDelta(this.delta, this.config);
-    const children = this.transformers.reduce(
-      (currentChildren, transformer) => transformer(currentChildren),
-      root.children,
-    );
-    return { ...root, children };
+    return applyTransformers(parseDelta(this.delta, this.config), this.transformers);
   }
 }
 
-// ─── Internal Helpers ───────────────────────────────────────────────────────
+// ─── Op Processors (pure — return new state) ────────────────────────────────
 
-function parseTextOp(
+function processTextOp(
+  state: ParseState,
   text: string,
   attrs: Attributes,
-  inlineBuffer: TNode[],
-  root: TNode,
   blockAttributes: ParserConfig['blockAttributes'],
-): void {
+): ParseState {
   const lines = text.split('\n');
+  let { blocks, buffer } = state;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
 
     if (line.length > 0) {
-      inlineBuffer.push(createTextNode(line, attrs, blockAttributes));
+      buffer = [...buffer, createTextNode(line, attrs, blockAttributes)];
     }
 
     const isNewline = i < lines.length - 1;
     if (isNewline) {
       const { blockType, blockAttrs } = extractBlockInfo(attrs, blockAttributes);
-      root.children.push(createBlock(blockType, blockAttrs, inlineBuffer));
-      inlineBuffer.length = 0;
+      blocks = [...blocks, createBlock(blockType, blockAttrs, buffer)];
+      buffer = [];
     }
   }
+
+  return { blocks, buffer };
 }
+
+function processEmbedOp(
+  state: ParseState,
+  insert: Record<string, unknown>,
+  attrs: Attributes,
+  blockEmbeds: Set<string>,
+): ParseState {
+  const embed = parseEmbedOp(insert, attrs);
+
+  if (blockEmbeds.has(embed.type)) {
+    const blocks =
+      state.buffer.length > 0
+        ? [...state.blocks, createBlock('paragraph', {}, state.buffer), embed]
+        : [...state.blocks, embed];
+    return { blocks, buffer: [] };
+  }
+
+  return { blocks: state.blocks, buffer: [...state.buffer, embed] };
+}
+
+// ─── Internal Helpers ───────────────────────────────────────────────────────
 
 function extractBlockInfo(
   attrs: Attributes,
@@ -187,10 +209,15 @@ function createTextNode(
 }
 
 function parseEmbedOp(insert: Record<string, unknown>, attrs: Attributes): TNode {
-  const [embedType, embedData] = Object.entries(insert)[0] ?? ['unknown', null];
+  const entries = Object.entries(insert);
+  if (entries.length === 0) {
+    throw new TypeError('parseEmbedOp: received an empty embed object with no type key');
+  }
+
+  const [embedType, embedData] = entries[0]!;
 
   return {
-    type: embedType!,
+    type: embedType,
     attributes: attrs,
     children: [],
     data: embedData as Record<string, unknown>,
