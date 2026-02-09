@@ -1,5 +1,6 @@
 import type { TNode, Transformer } from '../../core/ast-types';
 import { groupConsecutiveElementsWhile } from '../utils/group-consecutive';
+import { isSameRow, isTableCell } from '../utils/node-queries';
 
 /**
  * Wraps adjacent table-cell nodes into proper table > row > cell structure.
@@ -25,58 +26,33 @@ export const tableGrouper: Transformer = (root: TNode): TNode => {
   };
 };
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function isTableCell(node: TNode): boolean {
-  return node.type === 'table-cell';
-}
-
-function getRowId(node: TNode): unknown {
-  return node.attributes.table;
-}
-
-function isSameRow(a: TNode, b: TNode): boolean {
-  return isTableCell(a) && isTableCell(b) && getRowId(a) === getRowId(b);
-}
-
 // ─── Core grouping ──────────────────────────────────────────────────────────
 
 function groupTables(children: TNode[]): TNode[] {
-  // Step 1: Group consecutive table-cell nodes together
   const grouped = groupConsecutiveElementsWhile(children, (curr, prev) => {
     return isTableCell(curr) && isTableCell(prev);
   });
 
-  // Step 2: Convert groups of table-cells into table TNodes
   return grouped.map((item): TNode => {
     if (!Array.isArray(item)) {
-      // Single non-table node, or a lone table-cell → wrap in table
       if (isTableCell(item)) {
         return createTable([createRow([item])]);
       }
       return item;
     }
-    // Multiple consecutive table-cells → group into rows, wrap in table
     return createTable(groupCellsIntoRows(item));
   });
 }
 
-/**
- * Groups an array of table-cell TNodes into table-row TNodes
- * based on their row identifier (`attributes.table`).
- */
 function groupCellsIntoRows(cells: TNode[]): TNode[] {
-  const grouped = groupConsecutiveElementsWhile(cells, (curr, prev) => {
-    return isSameRow(curr, prev);
-  });
+  const grouped = groupConsecutiveElementsWhile(cells, isSameRow);
 
   return grouped.map((item): TNode => {
-    if (Array.isArray(item)) {
-      return createRow(item);
-    }
-    return createRow([item]);
+    return createRow(Array.isArray(item) ? item : [item]);
   });
 }
+
+// ─── TNode factories ────────────────────────────────────────────────────────
 
 function createRow(cells: TNode[]): TNode {
   return {

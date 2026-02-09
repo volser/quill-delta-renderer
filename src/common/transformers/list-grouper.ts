@@ -1,5 +1,12 @@
 import type { TNode, Transformer } from '../../core/ast-types';
 import { groupConsecutiveElementsWhile } from '../utils/group-consecutive';
+import {
+  getIndent,
+  getListType,
+  hasHigherIndent,
+  isListItem,
+  isSameListType,
+} from '../utils/node-queries';
 
 /**
  * Groups adjacent `list-item` nodes into `list` container nodes
@@ -26,76 +33,44 @@ export const listGrouper: Transformer = (root: TNode): TNode => {
   };
 };
 
-// ─── List type helpers ──────────────────────────────────────────────────────
+// ─── Internal nesting structures ────────────────────────────────────────────
+// These intermediate types exist only during the nesting algorithm.
+// They are converted back to TNodes before the transformer returns.
 
-function isListItem(node: TNode): boolean {
-  return node.type === 'list-item';
+/** A list-item TNode paired with an optional nested sub-list. */
+interface NestingItem {
+  node: TNode;
+  innerList: NestingGroup | null;
 }
 
-function getListType(node: TNode): unknown {
-  return node.attributes.list;
+/** A group of NestingItems that will become a single `list` TNode. */
+interface NestingGroup {
+  items: NestingItem[];
 }
 
-function getIndent(node: TNode): number {
-  return (Number(node.attributes.indent) || 0) as number;
+function isNestingGroup(item: unknown): item is NestingGroup {
+  return typeof item === 'object' && item !== null && 'items' in item;
 }
 
-function isSameListType(a: TNode, b: TNode): boolean {
-  const aList = getListType(a);
-  const bList = getListType(b);
-  if (!aList || !bList) return false;
-
-  // checked and unchecked are treated as the same list type
-  const isCheckList = (v: unknown) => v === 'checked' || v === 'unchecked';
-  if (isCheckList(aList) && isCheckList(bList)) return true;
-
-  return aList === bList;
-}
-
-function hasHigherIndent(a: TNode, b: TNode): boolean {
-  return getIndent(a) > getIndent(b);
-}
-
-// ─── Core nesting algorithm ─────────────────────────────────────────────────
-
-/**
- * Internal "list group" — a temporary container used during nesting.
- * Maps to a `list` TNode in the final output.
- */
-interface ListItem {
-  node: TNode; // the list-item TNode
-  innerList: ListGroup | null;
-}
-
-interface ListGroup {
-  items: ListItem[];
-}
+// ─── Pipeline ───────────────────────────────────────────────────────────────
 
 function nestLists(children: TNode[]): TNode[] {
-  // Step 1: Convert list-item TNodes into ListGroups (flat, same-type + same-indent)
-  const withListGroups = convertListItemsToListGroups(children);
+  const withGroups = convertListItemsToNestingGroups(children);
+  const sections = groupConsecutiveNestingGroups(withGroups);
 
-  // Step 2: Group consecutive ListGroups into sections for nesting
-  const sections = groupConsecutiveListGroups(withListGroups);
-
-  // Step 3: Nest each section (handle indentation)
   const nested = sections.flatMap((section) => {
     if (!Array.isArray(section)) return [section];
-    return nestListSection(section as ListGroup[]);
+    return nestSection(section as NestingGroup[]);
   });
 
-  // Step 4: Merge consecutive root-level lists of the same type
   const merged = mergeConsecutiveSameTypeLists(nested);
 
-  // Step 5: Convert internal ListGroup structures back to TNodes
-  return merged.map((item) => (isListGroup(item) ? listGroupToTNode(item as ListGroup) : item));
+  return merged.map((item) => (isNestingGroup(item) ? toListTNode(item) : item));
 }
 
-/**
- * Step 1: Group consecutive same-type, same-indent list-items into ListGroups.
- * Non-list-item nodes pass through unchanged.
- */
-function convertListItemsToListGroups(children: TNode[]): Array<TNode | ListGroup> {
+// ─── Step 1: Flat grouping ──────────────────────────────────────────────────
+
+function convertListItemsToNestingGroups(children: TNode[]): Array<TNode | NestingGroup> {
   const grouped = groupConsecutiveElementsWhile(children, (curr, prev) => {
     return (
       isListItem(curr) &&
@@ -105,7 +80,7 @@ function convertListItemsToListGroups(children: TNode[]): Array<TNode | ListGrou
     );
   });
 
-  return grouped.map((item): TNode | ListGroup => {
+  return grouped.map((item): TNode | NestingGroup => {
     if (!Array.isArray(item)) {
       if (isListItem(item)) {
         return { items: [{ node: item, innerList: null }] };
@@ -116,32 +91,29 @@ function convertListItemsToListGroups(children: TNode[]): Array<TNode | ListGrou
   });
 }
 
-/**
- * Step 2: Group consecutive ListGroups together for section-based nesting.
- */
-function groupConsecutiveListGroups(
-  items: Array<TNode | ListGroup>,
-): Array<TNode | ListGroup | Array<TNode | ListGroup>> {
+// ─── Step 2: Section grouping ───────────────────────────────────────────────
+
+function groupConsecutiveNestingGroups(
+  items: Array<TNode | NestingGroup>,
+): Array<TNode | NestingGroup | Array<TNode | NestingGroup>> {
   return groupConsecutiveElementsWhile(items, (curr, prev) => {
-    return isListGroup(curr) && isListGroup(prev);
+    return isNestingGroup(curr) && isNestingGroup(prev);
   });
 }
 
-/**
- * Step 3: Within a section of consecutive ListGroups, nest higher-indent
- * groups under their closest lower-indent parent.
- */
-function nestListSection(sectionItems: ListGroup[]): ListGroup[] {
-  const indentGroups = groupByIndent(sectionItems);
+// ─── Step 3: Indent-based nesting ───────────────────────────────────────────
 
-  Object.keys(indentGroups)
+function nestSection(sectionItems: NestingGroup[]): NestingGroup[] {
+  const byIndent = groupByIndent(sectionItems);
+
+  Object.keys(byIndent)
     .map(Number)
     .sort()
     .reverse()
     .forEach((indent) => {
-      indentGroups[indent]!.forEach((lg) => {
-        const idx = sectionItems.indexOf(lg);
-        if (placeUnderParent(lg, sectionItems.slice(0, idx))) {
+      byIndent[indent]!.forEach((group) => {
+        const idx = sectionItems.indexOf(group);
+        if (placeUnderParent(group, sectionItems.slice(0, idx))) {
           sectionItems.splice(idx, 1);
         }
       });
@@ -150,24 +122,21 @@ function nestListSection(sectionItems: ListGroup[]): ListGroup[] {
   return sectionItems;
 }
 
-function groupByIndent(items: ListGroup[]): Record<number, ListGroup[]> {
-  return items.reduce<Record<number, ListGroup[]>>((acc, lg) => {
-    const indent = getIndent(lg.items[0]!.node);
+function groupByIndent(items: NestingGroup[]): Record<number, NestingGroup[]> {
+  return items.reduce<Record<number, NestingGroup[]>>((acc, group) => {
+    const indent = getIndent(group.items[0]!.node);
     if (indent > 0) {
       acc[indent] = acc[indent] || [];
-      acc[indent]!.push(lg);
+      acc[indent]!.push(group);
     }
     return acc;
   }, {});
 }
 
-function placeUnderParent(target: ListGroup, candidates: ListGroup[]): boolean {
+function placeUnderParent(target: NestingGroup, candidates: NestingGroup[]): boolean {
   for (let i = candidates.length - 1; i >= 0; i--) {
     const candidate = candidates[i]!;
-    const targetNode = target.items[0]!.node;
-    const candidateNode = candidate.items[0]!.node;
-
-    if (hasHigherIndent(targetNode, candidateNode)) {
+    if (hasHigherIndent(target.items[0]!.node, candidate.items[0]!.node)) {
       const parent = candidate.items[candidate.items.length - 1]!;
       if (parent.innerList) {
         parent.innerList.items = parent.innerList.items.concat(target.items);
@@ -180,54 +149,38 @@ function placeUnderParent(target: ListGroup, candidates: ListGroup[]): boolean {
   return false;
 }
 
-/**
- * Step 4: Merge consecutive root-level ListGroups of the same list type.
- */
-function mergeConsecutiveSameTypeLists(items: Array<TNode | ListGroup>): Array<TNode | ListGroup> {
+// ─── Step 4: Merge same-type root lists ─────────────────────────────────────
+
+function mergeConsecutiveSameTypeLists(
+  items: Array<TNode | NestingGroup>,
+): Array<TNode | NestingGroup> {
   const grouped = groupConsecutiveElementsWhile(items, (curr, prev) => {
-    if (!isListGroup(curr) || !isListGroup(prev)) return false;
-    const currGroup = curr as ListGroup;
-    const prevGroup = prev as ListGroup;
-    return isSameListType(currGroup.items[0]!.node, prevGroup.items[0]!.node);
+    if (!isNestingGroup(curr) || !isNestingGroup(prev)) return false;
+    return isSameListType(curr.items[0]!.node, prev.items[0]!.node);
   });
 
-  return grouped.map((v): TNode | ListGroup => {
+  return grouped.map((v): TNode | NestingGroup => {
     if (!Array.isArray(v)) return v;
-    const allItems = (v as ListGroup[]).flatMap((g) => g.items);
+    const allItems = (v as NestingGroup[]).flatMap((g) => g.items);
     return { items: allItems };
   });
 }
 
-// ─── Conversion helpers ─────────────────────────────────────────────────────
+// ─── TNode conversion ───────────────────────────────────────────────────────
 
-function isListGroup(item: unknown): item is ListGroup {
-  return typeof item === 'object' && item !== null && 'items' in item;
-}
-
-/**
- * Convert the internal ListGroup structure back into TNode tree.
- */
-function listGroupToTNode(group: ListGroup): TNode {
-  const listType = getListType(group.items[0]!.node);
-
+function toListTNode(group: NestingGroup): TNode {
   return {
     type: 'list',
-    attributes: { list: listType },
-    children: group.items.map((item) => listItemToTNode(item)),
+    attributes: { list: getListType(group.items[0]!.node) },
+    children: group.items.map(toListItemTNode),
     isInline: false,
   };
 }
 
-function listItemToTNode(item: ListItem): TNode {
+function toListItemTNode(item: NestingItem): TNode {
   const children = [...item.node.children];
-
-  // If this item has a nested inner list, append it as a child
   if (item.innerList) {
-    children.push(listGroupToTNode(item.innerList));
+    children.push(toListTNode(item.innerList));
   }
-
-  return {
-    ...item.node,
-    children,
-  };
+  return { ...item.node, children };
 }
