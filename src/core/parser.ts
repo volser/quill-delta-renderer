@@ -9,6 +9,7 @@ const BLOCK_ATTRIBUTES = new Set([
   'blockquote',
   'code-block',
   'list',
+  'table',
   'align',
   'direction',
   'indent',
@@ -132,6 +133,9 @@ export class DeltaParser {
         } else if (key === 'list') {
           blockType = 'list-item';
           blockAttrs.list = value; // 'ordered' | 'bullet'
+        } else if (key === 'table') {
+          blockType = 'table-cell';
+          blockAttrs.table = value; // row identifier, e.g. 'row-1'
         } else {
           // align, direction, indent — keep as attributes on the block
           blockAttrs[key] = value;
