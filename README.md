@@ -1,93 +1,170 @@
 # quill-delta-render
 
-A framework-agnostic, AST-based engine for converting Quill Deltas into HTML, Markdown, React components, or any other format.
+A framework-agnostic, AST-based engine for converting [Quill](https://quilljs.com/) Deltas into HTML, Markdown, React components, or any custom format.
+
+## Features
+
+- **Three-stage pipeline** -- Parse, Transform, Render -- each stage is independent and extensible
+- **Multiple output formats** -- HTML, Markdown, and React out of the box
+- **Tree-shakeable** -- subpath exports let you import only what you need
+- **Zero required dependencies** -- React is an optional peer dependency
+- **Fully typed** -- written in TypeScript with strict types throughout
 
 ## Install
 
 ```bash
-pnpm add quill-delta-render
+npm install quill-delta-render
+```
+
+If you use the React renderer, also install React:
+
+```bash
+npm install react react-dom
 ```
 
 ## Quick Start
 
-```typescript
-import { DeltaParser, SemanticHtmlRenderer } from 'quill-delta-render';
+### HTML
 
-const delta = {
-  ops: [
-    { insert: 'Hello ' },
-    { insert: 'World', attributes: { bold: true } },
-    { insert: '\n', attributes: { header: 1 } },
-  ],
-};
+```ts
+import { DeltaParser, applyTransformers } from 'quill-delta-render/core';
+import { listGrouper, codeBlockGrouper, tableGrouper } from 'quill-delta-render/common';
+import { SemanticHtmlRenderer } from 'quill-delta-render/renderers/html';
 
-const ast = new DeltaParser(delta).toAST();
-const html = new SemanticHtmlRenderer().render(ast);
+const delta = { ops: [{ insert: 'Hello, world!\n' }] };
 
-// Output: <h1>Hello <strong>World</strong></h1>
+const parser = new DeltaParser();
+const ast = parser.parse(delta);
+const transformed = applyTransformers(ast, [listGrouper, codeBlockGrouper, tableGrouper]);
+
+const renderer = new SemanticHtmlRenderer();
+const html = renderer.render(transformed);
+// => '<p>Hello, world!</p>'
+```
+
+### Markdown
+
+```ts
+import { MarkdownRenderer } from 'quill-delta-render/renderers/markdown';
+
+const renderer = new MarkdownRenderer();
+const md = renderer.render(transformed);
+```
+
+### React
+
+```tsx
+import { ReactRenderer } from 'quill-delta-render/renderers/react';
+
+const renderer = new ReactRenderer();
+const element = renderer.render(transformed);
+// Returns a ReactNode tree you can use directly in JSX
 ```
 
 ## Architecture
 
-The library uses a three-stage pipeline:
-
-1. **Parse** — `DeltaParser` converts flat Delta ops into a raw AST
-2. **Transform** — Middleware functions restructure the tree (e.g., grouping list items)
-3. **Render** — A `BaseRenderer` subclass walks the AST and produces output
-
 ```
-Delta  -->  Parser  -->  Raw AST  -->  Transformers  -->  Final AST  -->  Renderer  -->  Output
+Delta ops  ──▶  DeltaParser  ──▶  Raw AST  ──▶  Transformers  ──▶  Semantic AST  ──▶  Renderer  ──▶  Output
 ```
 
-## Transformers
+1. **Parsing** -- `DeltaParser` converts flat Delta operations into a raw AST of `TNode` objects.
+2. **Transformation** -- Middleware functions reorganize the tree (e.g., grouping list items into lists, wrapping table cells into rows).
+3. **Rendering** -- A renderer walks the AST and produces the final output using its configured block/mark handlers.
 
-Register middleware to restructure the AST before rendering:
+Each stage is decoupled. You can swap renderers, add custom transformers, or extend the parser independently.
 
-```typescript
-import { DeltaParser } from 'quill-delta-render';
-import { listGrouper } from 'quill-delta-render/common';
+## Subpath Exports
 
-const ast = new DeltaParser(delta)
-  .use(listGrouper)
-  .toAST();
+Import only what you need -- unused renderers are never bundled:
+
+| Import path | Contents |
+|---|---|
+| `quill-delta-render` | Everything (barrel) |
+| `quill-delta-render/core` | `DeltaParser`, `BaseRenderer`, `applyTransformers`, types |
+| `quill-delta-render/common` | Transformers, sanitizers, shared utilities |
+| `quill-delta-render/renderers/html` | `SemanticHtmlRenderer`, `QuillHtmlRenderer` |
+| `quill-delta-render/renderers/markdown` | `MarkdownRenderer` |
+| `quill-delta-render/renderers/react` | `ReactRenderer` |
+
+## Configuration
+
+All renderers accept an optional config object. Every option has a sensible default.
+
+### SemanticHtmlRenderer
+
+```ts
+new SemanticHtmlRenderer({
+  classPrefix: 'ql',          // CSS class prefix (default: 'ql')
+  paragraphTag: 'p',          // Tag for paragraphs (default: 'p')
+  linkTarget: '_blank',       // Link target attribute (default: '_blank')
+  linkRel: 'noopener',        // Link rel attribute
+  inlineStyles: false,         // Use inline styles instead of classes
+  encodeHtml: true,           // HTML-encode text content (default: true)
+  customTag: (fmt, node) => { /* return custom tag or undefined */ },
+});
 ```
 
-## Custom Renderers
+### ReactRenderer
 
-Extend `BaseRenderer<T>` to support any output format:
+```tsx
+new ReactRenderer({
+  classPrefix: 'ql',          // CSS class prefix (default: 'ql')
+  linkTarget: '_blank',       // Link target attribute (default: '_blank')
+  linkRel: 'noopener',        // Link rel attribute
+  customTag: (fmt, node) => { /* return custom tag or undefined */ },
+  components: {               // Override block-level rendering with custom components
+    paragraph: ({ children }) => <div>{children}</div>,
+    image: ({ node }) => <CustomImage src={node.data} />,
+  },
+});
+```
 
-```typescript
+### MarkdownRenderer
+
+```ts
+new MarkdownRenderer({
+  singleLineBreakForPTag: false, // Single \n between paragraphs (default: false)
+  bulletChar: '*',               // Unordered list character (default: '*')
+  fenceChar: '```',              // Fenced code block delimiter (default: '```')
+});
+```
+
+## Extensibility
+
+### Custom Transformers
+
+Add your own middleware to reshape the AST before rendering:
+
+```ts
+import type { TNode, Transformer } from 'quill-delta-render/core';
+
+const myTransformer: Transformer = (nodes: TNode[]) => {
+  // modify, filter, or reorganize nodes
+  return nodes;
+};
+
+const ast = applyTransformers(rawAst, [listGrouper, myTransformer]);
+```
+
+### Custom Renderer
+
+Extend `BaseRenderer` to target any output format:
+
+```ts
 import { BaseRenderer } from 'quill-delta-render/core';
 
-class MyRenderer extends BaseRenderer<string> {
-  protected joinChildren(children: string[]): string {
-    return children.join('');
-  }
-
-  protected renderText(text: string): string {
-    return text;
-  }
+class JsonRenderer extends BaseRenderer<object> {
+  // implement abstract methods for your output format
 }
 ```
 
-## Runtime Overrides
+## HTML Renderers
 
-```typescript
-const renderer = new SemanticHtmlRenderer();
+The library ships two HTML renderers:
 
-renderer.extendBlock('image', (node) =>
-  `<figure><img src="${node.data}" loading="lazy" /></figure>`
-);
+- **`SemanticHtmlRenderer`** -- produces clean semantic HTML with full configuration. Recommended for new projects.
+- **`QuillHtmlRenderer`** -- produces HTML matching `quill-delta-to-html` output. Use for backward compatibility.
 
-renderer.extendMark('bold', (content) => `<b>${content}</b>`);
-```
+## License
 
-## Development
-
-```bash
-pnpm install
-pnpm test          # run tests
-pnpm test:watch    # watch mode
-pnpm lint          # type check
-pnpm build         # build ESM + CJS
-```
+MIT
