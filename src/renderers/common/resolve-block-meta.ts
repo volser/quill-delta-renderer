@@ -1,4 +1,5 @@
 import type { TNode } from '../../core/ast-types';
+import { getListType } from './node-attributes';
 import { resolveCodeBlockLines } from './resolve-code-block-lines';
 
 // ─── Code Block ─────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ export function buildCodeBlockClassName(language: string | undefined, classPrefi
  * for non-checklist items.
  */
 export function resolveCheckedState(node: TNode): 'true' | 'false' | undefined {
-  const listType = node.attributes.list as string;
+  const listType = getListType(node);
   if (listType === 'checked') return 'true';
   if (listType === 'unchecked') return 'false';
   return undefined;

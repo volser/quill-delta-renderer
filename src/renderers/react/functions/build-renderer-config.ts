@@ -1,6 +1,7 @@
 import { type ComponentType, createElement, type ReactNode } from 'react';
 import { DEFAULT_MARK_PRIORITIES } from '../../../common/default-mark-priorities';
 import type { RendererConfig, TNode } from '../../../core/ast-types';
+import { getHeaderLevel, getListType, getTableRow } from '../../common/node-attributes';
 import {
   buildCodeBlockClassName,
   resolveCheckedState,
@@ -28,23 +29,6 @@ import type { ReactProps } from '../types/react-props';
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /**
- * If a custom component is registered for the given block type, render it.
- * Otherwise return `undefined` to fall through to the default element.
- */
-function tryCustomComponent(
-  cfg: ResolvedReactConfig,
-  type: string,
-  node: TNode,
-  children: ReactNode,
-  extraProps?: Record<string, unknown>,
-): ReactNode | undefined {
-  const Component: ComponentType<BlockComponentProps> | undefined = cfg.components[type];
-  if (!Component) return undefined;
-
-  return createElement(Component, { node, children, ...extraProps });
-}
-
-/**
  * Resolve the tag name for a block, checking customTag first.
  */
 function resolveTag(
@@ -54,6 +38,29 @@ function resolveTag(
   defaultTag: string,
 ): string {
   return cfg.customTag?.(format, node) ?? defaultTag;
+}
+
+type BlockFn = (node: TNode, children: ReactNode, resolvedAttrs: ReactProps) => ReactNode;
+
+/**
+ * Wrap a block handler so that a custom component (if registered) is rendered
+ * instead of the default element. Eliminates the repetitive `tryCustomComponent`
+ * guard at the top of every block handler.
+ */
+function withCustomComponent(
+  cfg: ResolvedReactConfig,
+  type: string,
+  handler: BlockFn,
+  extraPropsFromNode?: (node: TNode, children: ReactNode) => Record<string, unknown> | undefined,
+): BlockFn {
+  return (node, children, resolvedAttrs) => {
+    const Component: ComponentType<BlockComponentProps> | undefined = cfg.components[type];
+    if (Component) {
+      const extra = extraPropsFromNode?.(node, children);
+      return createElement(Component, { node, children, ...extra });
+    }
+    return handler(node, children, resolvedAttrs);
+  };
 }
 
 // ─── Node Override Helpers ─────────────────────────────────────────────────
@@ -98,165 +105,175 @@ export function buildRendererConfig(
     },
 
     blocks: {
-      paragraph: (node, children) => {
-        const custom = tryCustomComponent(cfg, 'paragraph', node, children);
-        if (custom !== undefined) return custom;
-
+      paragraph: withCustomComponent(cfg, 'paragraph', (node, children) => {
         const tag = resolveTag(cfg, 'paragraph', node, 'p');
         return createElement(tag, null, children || null);
-      },
+      }),
 
-      header: (node, children) => {
-        const level = node.attributes.header as number;
-        const custom = tryCustomComponent(cfg, 'header', node, children);
-        if (custom !== undefined) return custom;
-
+      header: withCustomComponent(cfg, 'header', (node, children) => {
+        const level = getHeaderLevel(node);
         const tag = resolveTag(cfg, 'header', node, `h${level}`);
         return createElement(tag, null, children || null);
-      },
+      }),
 
-      blockquote: (node, children) => {
-        const custom = tryCustomComponent(cfg, 'blockquote', node, children);
-        if (custom !== undefined) return custom;
-
+      blockquote: withCustomComponent(cfg, 'blockquote', (node, children) => {
         const tag = resolveTag(cfg, 'blockquote', node, 'blockquote');
         return createElement(tag, null, children || null);
-      },
+      }),
 
-      'code-block': (node, children) => {
-        const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
-        const extraProps: Record<string, unknown> = { className: meta.className };
-        if (meta.language) {
-          extraProps['data-language'] = meta.language;
-        }
+      'code-block': withCustomComponent(
+        cfg,
+        'code-block',
+        (node, children) => {
+          const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
+          const props: Record<string, unknown> = { className: meta.className };
+          if (meta.language) props['data-language'] = meta.language;
 
-        const custom = tryCustomComponent(cfg, 'code-block', node, children, extraProps);
-        if (custom !== undefined) return custom;
+          const tag = resolveTag(cfg, 'code-block', node, 'pre');
+          return createElement(tag, props, children || null);
+        },
+        (node) => {
+          const meta = resolveCodeBlockMeta(node, cfg.classPrefix);
+          const props: Record<string, unknown> = { className: meta.className };
+          if (meta.language) props['data-language'] = meta.language;
+          return props;
+        },
+      ),
 
-        const tag = resolveTag(cfg, 'code-block', node, 'pre');
-        return createElement(tag, extraProps, children || null);
-      },
+      'list-item': withCustomComponent(
+        cfg,
+        'list-item',
+        (node, children) => {
+          const checked = resolveCheckedState(node);
+          const props: Record<string, unknown> = {};
+          if (checked !== undefined) props['data-checked'] = checked;
 
-      'list-item': (node, children) => {
-        const checked = resolveCheckedState(node);
-        const extraProps: Record<string, unknown> = {};
-        if (checked !== undefined) {
-          extraProps['data-checked'] = checked;
-        }
+          const tag = resolveTag(cfg, 'list-item', node, 'li');
+          return createElement(tag, Object.keys(props).length > 0 ? props : null, children || null);
+        },
+        (node) => {
+          const checked = resolveCheckedState(node);
+          if (checked !== undefined) return { 'data-checked': checked };
+          return undefined;
+        },
+      ),
 
-        const custom = tryCustomComponent(cfg, 'list-item', node, children, extraProps);
-        if (custom !== undefined) return custom;
-
-        const tag = resolveTag(cfg, 'list-item', node, 'li');
-        return createElement(
-          tag,
-          Object.keys(extraProps).length > 0 ? extraProps : null,
-          children || null,
-        );
-      },
-
-      list: (node, children) => {
-        const listType = node.attributes.list as string;
-        const custom = tryCustomComponent(cfg, 'list', node, children);
-        if (custom !== undefined) return custom;
-
+      list: withCustomComponent(cfg, 'list', (node, children) => {
+        const listType = getListType(node);
         const tag = listType === 'ordered' ? 'ol' : 'ul';
         return createElement(tag, null, children);
-      },
+      }),
 
-      table: (node, children) => {
-        const custom = tryCustomComponent(cfg, 'table', node, children);
-        if (custom !== undefined) return custom;
-
+      table: withCustomComponent(cfg, 'table', (_node, children) => {
         return createElement('table', null, createElement('tbody', null, children));
-      },
+      }),
 
-      'table-row': (node, children) => {
-        const custom = tryCustomComponent(cfg, 'table-row', node, children);
-        if (custom !== undefined) return custom;
-
+      'table-row': withCustomComponent(cfg, 'table-row', (_node, children) => {
         return createElement('tr', null, children);
-      },
+      }),
 
-      'table-cell': (node, children) => {
-        const row = node.attributes.table as string | undefined;
-        const extraProps: Record<string, unknown> = {};
-        if (row) {
-          extraProps['data-row'] = row;
-        }
+      'table-cell': withCustomComponent(
+        cfg,
+        'table-cell',
+        (node, children) => {
+          const row = getTableRow(node);
+          const props: Record<string, unknown> = {};
+          if (row) props['data-row'] = row;
 
-        const custom = tryCustomComponent(cfg, 'table-cell', node, children, extraProps);
-        if (custom !== undefined) return custom;
+          return createElement('td', Object.keys(props).length > 0 ? props : null, children);
+        },
+        (node) => {
+          const row = getTableRow(node);
+          if (row) return { 'data-row': row };
+          return undefined;
+        },
+      ),
 
-        return createElement(
-          'td',
-          Object.keys(extraProps).length > 0 ? extraProps : null,
-          children,
-        );
-      },
+      image: withCustomComponent(
+        cfg,
+        'image',
+        (node) => {
+          const img = resolveImageData(node);
+          if (!img) return null;
 
-      image: (node) => {
-        const img = resolveImageData(node);
-        if (!img) return null;
+          const imgProps: Record<string, unknown> = { src: img.src, alt: img.alt };
+          if (img.width) imgProps.width = img.width;
+          if (img.height) imgProps.height = img.height;
 
-        const imgProps: Record<string, unknown> = { src: img.src, alt: img.alt };
-        if (img.width) imgProps.width = img.width;
-        if (img.height) imgProps.height = img.height;
+          const imgElement = createElement('img', imgProps);
 
-        const custom = tryCustomComponent(cfg, 'image', node, null, imgProps);
-        if (custom !== undefined) return custom;
+          if (img.linkHref) {
+            const linkProps: Record<string, unknown> = { href: img.linkHref };
+            if (cfg.linkTarget) linkProps.target = cfg.linkTarget;
+            if (cfg.linkRel) linkProps.rel = cfg.linkRel;
+            return createElement('a', linkProps, imgElement);
+          }
 
-        const imgElement = createElement('img', imgProps);
+          return imgElement;
+        },
+        (node) => {
+          const img = resolveImageData(node);
+          if (!img) return undefined;
+          const props: Record<string, unknown> = { src: img.src, alt: img.alt };
+          if (img.width) props.width = img.width;
+          if (img.height) props.height = img.height;
+          return props;
+        },
+      ),
 
-        if (img.linkHref) {
-          const linkProps: Record<string, unknown> = { href: img.linkHref };
-          if (cfg.linkTarget) linkProps.target = cfg.linkTarget;
-          if (cfg.linkRel) linkProps.rel = cfg.linkRel;
-          return createElement('a', linkProps, imgElement);
-        }
+      video: withCustomComponent(
+        cfg,
+        'video',
+        (node) => {
+          const src = resolveVideoSrc(node);
+          if (!src) return null;
 
-        return imgElement;
-      },
+          return createElement('iframe', {
+            className: `${cfg.classPrefix}-video`,
+            src,
+            frameBorder: '0',
+            allowFullScreen: true,
+          });
+        },
+        (node) => {
+          const src = resolveVideoSrc(node);
+          if (!src) return undefined;
+          return { src, className: `${cfg.classPrefix}-video` };
+        },
+      ),
 
-      video: (node) => {
-        const src = resolveVideoSrc(node);
-        if (!src) return null;
+      formula: withCustomComponent(
+        cfg,
+        'formula',
+        (node) => {
+          const formulaClass = `${cfg.classPrefix}-formula`;
+          const text = resolveFormulaText(node);
+          return createElement('span', { className: formulaClass }, text);
+        },
+        (node) => {
+          const text = resolveFormulaText(node);
+          return { className: `${cfg.classPrefix}-formula`, text };
+        },
+      ),
 
-        const videoClass = `${cfg.classPrefix}-video`;
-
-        const custom = tryCustomComponent(cfg, 'video', node, null, { src, className: videoClass });
-        if (custom !== undefined) return custom;
-
-        return createElement('iframe', {
-          className: videoClass,
-          src,
-          frameBorder: '0',
-          allowFullScreen: true,
-        });
-      },
-
-      formula: (node) => {
-        const formulaClass = `${cfg.classPrefix}-formula`;
-        const text = resolveFormulaText(node);
-
-        const custom = tryCustomComponent(cfg, 'formula', node, text, { className: formulaClass });
-        if (custom !== undefined) return custom;
-
-        return createElement('span', { className: formulaClass }, text);
-      },
-
-      mention: (node) => {
-        const mention = resolveMentionData(node);
-
-        const linkProps: Record<string, unknown> = { href: mention.href };
-        if (mention.className) linkProps.className = mention.className;
-        if (mention.target) linkProps.target = mention.target;
-
-        const custom = tryCustomComponent(cfg, 'mention', node, mention.name, linkProps);
-        if (custom !== undefined) return custom;
-
-        return createElement('a', linkProps, mention.name);
-      },
+      mention: withCustomComponent(
+        cfg,
+        'mention',
+        (node) => {
+          const mention = resolveMentionData(node);
+          const linkProps: Record<string, unknown> = { href: mention.href };
+          if (mention.className) linkProps.className = mention.className;
+          if (mention.target) linkProps.target = mention.target;
+          return createElement('a', linkProps, mention.name);
+        },
+        (node) => {
+          const mention = resolveMentionData(node);
+          const props: Record<string, unknown> = { href: mention.href };
+          if (mention.className) props.className = mention.className;
+          if (mention.target) props.target = mention.target;
+          return props;
+        },
+      ),
     },
 
     // ─── Element Marks (create wrapper elements) ─────────────────────────

@@ -6,6 +6,7 @@ export type {
   DeltaOp,
   KnownNodeType,
   MarkHandler,
+  NodeOverrideContext,
   NodeOverrideHandler,
   ParserConfig,
   RendererConfig,

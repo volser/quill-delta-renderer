@@ -1,4 +1,5 @@
 import type { TNode } from '../../core/ast-types';
+import { getAlt, getHeight, getLinkHref, getWidth } from './node-attributes';
 
 // ─── Image ──────────────────────────────────────────────────────────────────
 
@@ -22,10 +23,10 @@ export function resolveImageData(node: TNode): ImageData | null {
 
   return {
     src,
-    alt: (node.attributes.alt as string) ?? '',
-    width: node.attributes.width as string | undefined,
-    height: node.attributes.height as string | undefined,
-    linkHref: node.attributes.link as string | undefined,
+    alt: getAlt(node),
+    width: getWidth(node),
+    height: getHeight(node),
+    linkHref: getLinkHref(node),
   };
 }
 

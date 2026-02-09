@@ -1,7 +1,13 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../common/default-mark-priorities';
 import type { NodeOverrideContext, TNode } from '../../../core/ast-types';
 import type { SimpleRendererConfig } from '../../../core/simple-renderer';
+import { getHeaderLevel } from '../../common/node-attributes';
 import { resolveCodeBlockLines } from '../../common/resolve-code-block-lines';
+import {
+  resolveFormulaText,
+  resolveImageData,
+  resolveVideoSrc,
+} from '../../common/resolve-embed-data';
 import type { ResolvedMarkdownConfig } from '../types/markdown-config';
 import { padListItemContent } from './pad-list-item-content';
 import { resolveCodeBlockLanguage } from './resolve-code-block-language';
@@ -120,7 +126,7 @@ export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRenderer
       },
 
       header: (node, children) => {
-        const level = node.attributes.header as number;
+        const level = getHeaderLevel(node);
         const prefix = '#'.repeat(level);
         return `${prefix} ${children}`;
       },
@@ -141,27 +147,19 @@ export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRenderer
       },
 
       image: (node) => {
-        const data = node.data;
-        const src =
-          typeof data === 'string'
-            ? data
-            : String((data as Record<string, unknown>)?.url ?? data ?? '');
-        const alt = (node.attributes.alt as string) ?? '';
-        return `![${alt}](${src})`;
+        const img = resolveImageData(node);
+        if (!img) return '';
+        return `![${img.alt}](${img.src})`;
       },
 
       video: (node) => {
-        const data = node.data;
-        return typeof data === 'string'
-          ? data
-          : String((data as Record<string, unknown>)?.url ?? data ?? '');
+        return resolveVideoSrc(node) ?? '';
       },
 
       divider: () => cfg.hrString,
 
       formula: (node) => {
-        const data = node.data as string | Record<string, unknown>;
-        return typeof data === 'string' ? data : String(data);
+        return resolveFormulaText(node);
       },
 
       // Table blocks — basic passthrough rendering.

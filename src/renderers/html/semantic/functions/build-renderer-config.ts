@@ -1,11 +1,16 @@
 import { DEFAULT_MARK_PRIORITIES } from '../../../../common/default-mark-priorities';
 import type { BlockHandler, MarkHandler, RendererConfig, TNode } from '../../../../core/ast-types';
+import { getHeaderLevel, getListType, getTableRow } from '../../../common/node-attributes';
 import {
   resolveCheckedState,
   resolveCodeBlockMeta,
   resolveLinkMeta,
 } from '../../../common/resolve-block-meta';
-import { resolveFormulaText, resolveVideoSrc } from '../../../common/resolve-embed-data';
+import {
+  resolveFormulaText,
+  resolveImageData,
+  resolveVideoSrc,
+} from '../../../common/resolve-embed-data';
 import { resolveMentionData } from '../../../common/resolve-mention-data';
 import { serializeResolvedAttrs } from '../../base-html-renderer';
 import { buildAttrString } from '../../common/build-attr-string';
@@ -123,7 +128,7 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
       }),
 
       header: h((node, children) => {
-        const level = node.attributes.header as number;
+        const level = getHeaderLevel(node);
         const defaultTag = `h${level}`;
         const tag = cfg.customTag?.('header', node) ?? defaultTag;
         const content = children || '<br/>';
@@ -167,7 +172,7 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
       }),
 
       list: h((node, children) => {
-        const listType = node.attributes.list as string;
+        const listType = getListType(node);
         let tag: string;
         if (listType === 'ordered') {
           tag = cfg.orderedListTag;
@@ -186,7 +191,7 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
       }),
 
       'table-cell': h((node, children) => {
-        const row = node.attributes.table as string | undefined;
+        const row = getTableRow(node);
         const extraAttrs: Record<string, string> = {};
         if (row) {
           extraAttrs['data-row'] = row;
@@ -196,35 +201,30 @@ export function buildRendererConfig(cfg: ResolvedConfig): RendererConfig<string,
       }),
 
       image: h((node) => {
-        const src = sanitizeUrl(String(node.data), cfg);
+        const img = resolveImageData(node);
+        if (!img) return '';
+
+        const src = sanitizeUrl(img.src, cfg);
         if (!src) return '';
-        const alt = (node.attributes.alt as string) ?? '';
-        const linkHref = node.attributes.link as string | undefined;
-        const width = node.attributes.width as string | undefined;
-        const height = node.attributes.height as string | undefined;
 
-        let imgAttrs = `src="${encodeText(src, cfg)}"`;
-        if (width) {
-          imgAttrs += ` width="${encodeText(width, cfg)}"`;
-        }
-        if (height) {
-          imgAttrs += ` height="${encodeText(height, cfg)}"`;
-        }
-        imgAttrs += ` alt="${encodeText(alt, cfg)}"`;
+        const imgAttrMap: Record<string, string> = {
+          src: encodeText(src, cfg),
+          alt: encodeText(img.alt, cfg),
+        };
+        if (img.width) imgAttrMap.width = encodeText(img.width, cfg);
+        if (img.height) imgAttrMap.height = encodeText(img.height, cfg);
 
-        const imgTag = `<img ${imgAttrs} />`;
+        const imgTag = `<img${buildAttrString(imgAttrMap)} />`;
 
-        if (linkHref) {
-          const sanitizedLink = sanitizeUrl(linkHref, cfg);
+        if (img.linkHref) {
+          const sanitizedLink = sanitizeUrl(img.linkHref, cfg);
           if (!sanitizedLink) return imgTag;
-          let linkAttrs = `href="${encodeText(sanitizedLink, cfg)}"`;
-          if (cfg.linkTarget) {
-            linkAttrs += ` target="${cfg.linkTarget}"`;
-          }
-          if (cfg.linkRel) {
-            linkAttrs += ` rel="${cfg.linkRel}"`;
-          }
-          return `<a ${linkAttrs}>${imgTag}</a>`;
+          const linkAttrMap: Record<string, string> = {
+            href: encodeText(sanitizedLink, cfg),
+          };
+          if (cfg.linkTarget) linkAttrMap.target = cfg.linkTarget;
+          if (cfg.linkRel) linkAttrMap.rel = cfg.linkRel;
+          return `<a${buildAttrString(linkAttrMap)}>${imgTag}</a>`;
         }
 
         return imgTag;

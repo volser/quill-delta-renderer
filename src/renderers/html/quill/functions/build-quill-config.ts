@@ -1,4 +1,12 @@
 import type { RendererConfig } from '../../../../core/ast-types';
+import {
+  getAlt,
+  getHeight,
+  getListType,
+  getTableRow,
+  getWidth,
+} from '../../../common/node-attributes';
+import { resolveFormulaText } from '../../../common/resolve-embed-data';
 import { escapeHtml, serializeResolvedAttrs } from '../../base-html-renderer';
 import { buildAttrString } from '../../common/build-attr-string';
 import { getLayoutClasses } from '../../common/get-layout-classes';
@@ -84,7 +92,7 @@ export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
       },
 
       'list-item': (node, children, resolvedAttrs) => {
-        const listType = node.attributes.list as string;
+        const listType = getListType(node);
         const content = children || '<br>';
 
         const classes = [...(resolvedAttrs.classes ?? [])];
@@ -110,7 +118,7 @@ export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
       },
 
       'table-cell': (node, children) => {
-        const row = node.attributes.table as string | undefined;
+        const row = getTableRow(node);
         const attrs: Record<string, string> = {};
         if (row) {
           attrs['data-row'] = row;
@@ -119,44 +127,38 @@ export function buildQuillConfig(): RendererConfig<string, ResolvedAttrs> {
       },
 
       image: (node) => {
-        const src = escapeHtml(String(node.data));
-        const alt = node.attributes.alt as string | undefined;
-        const width = node.attributes.width as string | undefined;
-        const height = node.attributes.height as string | undefined;
+        const src = String(node.data);
+        const alt = getAlt(node);
+        const width = getWidth(node);
+        const height = getHeight(node);
 
-        let imgAttrs = `src="${src}"`;
-        if (alt != null) {
-          imgAttrs += ` alt="${escapeHtml(alt)}"`;
-        }
-        if (width) {
-          imgAttrs += ` width="${escapeHtml(width)}"`;
-        }
-        if (height) {
-          imgAttrs += ` height="${escapeHtml(height)}"`;
-        }
+        const attrs: Record<string, string> = { src };
+        if (alt) attrs.alt = alt;
+        if (width) attrs.width = width;
+        if (height) attrs.height = height;
 
-        return `<img ${imgAttrs}>`;
+        return `<img${buildAttrString(attrs)}>`;
       },
 
       video: (node) => {
-        const src = escapeHtml(String(node.data));
-        const width = node.attributes.width as string | undefined;
-        const height = node.attributes.height as string | undefined;
+        const src = String(node.data);
+        const width = getWidth(node);
+        const height = getHeight(node);
 
-        let attrs = `class="${PREFIX}-video" src="${src}" frameborder="0" allowfullscreen="true"`;
-        if (width) {
-          attrs += ` width="${escapeHtml(width)}"`;
-        }
-        if (height) {
-          attrs += ` height="${escapeHtml(height)}"`;
-        }
+        const attrs: Record<string, string> = {
+          class: `${PREFIX}-video`,
+          src,
+          frameborder: '0',
+          allowfullscreen: 'true',
+        };
+        if (width) attrs.width = width;
+        if (height) attrs.height = height;
 
-        return `<iframe ${attrs}></iframe>`;
+        return `<iframe${buildAttrString(attrs)}></iframe>`;
       },
 
       formula: (node) => {
-        const data = node.data as string | Record<string, unknown>;
-        const text = typeof data === 'string' ? data : String(data);
+        const text = resolveFormulaText(node);
         return `<span class="${PREFIX}-formula" data-value="${escapeHtml(text)}">${escapeHtml(text)}</span>`;
       },
     },
