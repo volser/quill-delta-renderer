@@ -27,7 +27,12 @@ function renderSemantic(delta: Delta): string {
   return semanticRenderer.render(ast);
 }
 
-function renderReact(delta: Delta): string {
+function renderReactElements(delta: Delta): void {
+  const ast = parseQuillDelta(delta);
+  reactRenderer.render(ast);
+}
+
+function renderReactToHtml(delta: Delta): string {
   const ast = parseQuillDelta(delta);
   const element = reactRenderer.render(ast);
   return renderToStaticMarkup(createElement('div', null, element));
@@ -237,7 +242,10 @@ describe('Plain text paragraphs', () => {
     renderSemantic(SMALL_PLAIN);
   });
   bench('ReactRenderer — 5 paragraphs', () => {
-    renderReact(SMALL_PLAIN);
+    renderReactElements(SMALL_PLAIN);
+  });
+  bench('ReactRenderer → HTML — 5 paragraphs', () => {
+    renderReactToHtml(SMALL_PLAIN);
   });
   bench('quill-delta-to-html — 5 paragraphs', () => {
     renderLegacy(SMALL_PLAIN);
@@ -247,7 +255,10 @@ describe('Plain text paragraphs', () => {
     renderSemantic(MEDIUM_PLAIN);
   });
   bench('ReactRenderer — 50 paragraphs', () => {
-    renderReact(MEDIUM_PLAIN);
+    renderReactElements(MEDIUM_PLAIN);
+  });
+  bench('ReactRenderer → HTML — 50 paragraphs', () => {
+    renderReactToHtml(MEDIUM_PLAIN);
   });
   bench('quill-delta-to-html — 50 paragraphs', () => {
     renderLegacy(MEDIUM_PLAIN);
@@ -257,7 +268,10 @@ describe('Plain text paragraphs', () => {
     renderSemantic(LARGE_PLAIN);
   });
   bench('ReactRenderer — 500 paragraphs', () => {
-    renderReact(LARGE_PLAIN);
+    renderReactElements(LARGE_PLAIN);
+  });
+  bench('ReactRenderer → HTML — 500 paragraphs', () => {
+    renderReactToHtml(LARGE_PLAIN);
   });
   bench('quill-delta-to-html — 500 paragraphs', () => {
     renderLegacy(LARGE_PLAIN);
@@ -269,7 +283,10 @@ describe('Formatted text (bold, italic, links, colors)', () => {
     renderSemantic(SMALL_FORMATTED);
   });
   bench('ReactRenderer — 5 blocks', () => {
-    renderReact(SMALL_FORMATTED);
+    renderReactElements(SMALL_FORMATTED);
+  });
+  bench('ReactRenderer → HTML — 5 blocks', () => {
+    renderReactToHtml(SMALL_FORMATTED);
   });
   bench('quill-delta-to-html — 5 blocks', () => {
     renderLegacy(SMALL_FORMATTED);
@@ -279,7 +296,10 @@ describe('Formatted text (bold, italic, links, colors)', () => {
     renderSemantic(MEDIUM_FORMATTED);
   });
   bench('ReactRenderer — 50 blocks', () => {
-    renderReact(MEDIUM_FORMATTED);
+    renderReactElements(MEDIUM_FORMATTED);
+  });
+  bench('ReactRenderer → HTML — 50 blocks', () => {
+    renderReactToHtml(MEDIUM_FORMATTED);
   });
   bench('quill-delta-to-html — 50 blocks', () => {
     renderLegacy(MEDIUM_FORMATTED);
@@ -289,7 +309,10 @@ describe('Formatted text (bold, italic, links, colors)', () => {
     renderSemantic(LARGE_FORMATTED);
   });
   bench('ReactRenderer — 200 blocks', () => {
-    renderReact(LARGE_FORMATTED);
+    renderReactElements(LARGE_FORMATTED);
+  });
+  bench('ReactRenderer → HTML — 200 blocks', () => {
+    renderReactToHtml(LARGE_FORMATTED);
   });
   bench('quill-delta-to-html — 200 blocks', () => {
     renderLegacy(LARGE_FORMATTED);
@@ -301,7 +324,10 @@ describe('Nested lists (5 levels × 4 items)', () => {
     renderSemantic(NESTED_LIST);
   });
   bench('ReactRenderer', () => {
-    renderReact(NESTED_LIST);
+    renderReactElements(NESTED_LIST);
+  });
+  bench('ReactRenderer → HTML', () => {
+    renderReactToHtml(NESTED_LIST);
   });
   bench('quill-delta-to-html', () => {
     renderLegacy(NESTED_LIST);
@@ -313,7 +339,10 @@ describe('Headers with body text', () => {
     renderSemantic(HEADERS_DOC);
   });
   bench('ReactRenderer', () => {
-    renderReact(HEADERS_DOC);
+    renderReactElements(HEADERS_DOC);
+  });
+  bench('ReactRenderer → HTML', () => {
+    renderReactToHtml(HEADERS_DOC);
   });
   bench('quill-delta-to-html', () => {
     renderLegacy(HEADERS_DOC);
@@ -325,7 +354,10 @@ describe('Code blocks (5 blocks × 10 lines)', () => {
     renderSemantic(CODE_BLOCKS);
   });
   bench('ReactRenderer', () => {
-    renderReact(CODE_BLOCKS);
+    renderReactElements(CODE_BLOCKS);
+  });
+  bench('ReactRenderer → HTML', () => {
+    renderReactToHtml(CODE_BLOCKS);
   });
   bench('quill-delta-to-html', () => {
     renderLegacy(CODE_BLOCKS);
@@ -337,7 +369,10 @@ describe('Embeds (20 images)', () => {
     renderSemantic(EMBEDS_DOC);
   });
   bench('ReactRenderer', () => {
-    renderReact(EMBEDS_DOC);
+    renderReactElements(EMBEDS_DOC);
+  });
+  bench('ReactRenderer → HTML', () => {
+    renderReactToHtml(EMBEDS_DOC);
   });
   bench('quill-delta-to-html', () => {
     renderLegacy(EMBEDS_DOC);
@@ -349,7 +384,10 @@ describe('Tables (10 rows × 4 cols)', () => {
     renderSemantic(TABLE_DOC);
   });
   bench('ReactRenderer', () => {
-    renderReact(TABLE_DOC);
+    renderReactElements(TABLE_DOC);
+  });
+  bench('ReactRenderer → HTML', () => {
+    renderReactToHtml(TABLE_DOC);
   });
   bench('quill-delta-to-html', () => {
     renderLegacy(TABLE_DOC);
@@ -361,7 +399,10 @@ describe('Realistic document (mixed content)', () => {
     renderSemantic(REALISTIC_DOC);
   });
   bench('ReactRenderer', () => {
-    renderReact(REALISTIC_DOC);
+    renderReactElements(REALISTIC_DOC);
+  });
+  bench('ReactRenderer → HTML', () => {
+    renderReactToHtml(REALISTIC_DOC);
   });
   bench('quill-delta-to-html', () => {
     renderLegacy(REALISTIC_DOC);
