@@ -22,7 +22,7 @@ describe('MarkdownRenderer – inline formatting', () => {
     expect(md).toBe('Hello ~~world~~');
   });
 
-  it('should render underline as HTML <u>', () => {
+  it('should strip underline (standard MD only)', () => {
     const md = renderDelta(
       d(
         { insert: 'Hello ' },
@@ -30,21 +30,21 @@ describe('MarkdownRenderer – inline formatting', () => {
         { insert: '\n' },
       ),
     );
-    expect(md).toBe('Hello <u>underlined</u>');
+    expect(md).toBe('Hello underlined');
   });
 
-  it('should render subscript as HTML <sub>', () => {
+  it('should strip subscript (standard MD only)', () => {
     const md = renderDelta(
       d({ insert: 'H' }, { insert: '2', attributes: { script: 'sub' } }, { insert: 'O\n' }),
     );
-    expect(md).toBe('H<sub>2</sub>O');
+    expect(md).toBe('H2O');
   });
 
-  it('should render superscript as HTML <sup>', () => {
+  it('should strip superscript (standard MD only)', () => {
     const md = renderDelta(
       d({ insert: 'E=mc' }, { insert: '2', attributes: { script: 'super' } }, { insert: '\n' }),
     );
-    expect(md).toBe('E=mc<sup>2</sup>');
+    expect(md).toBe('E=mc2');
   });
 
   it('should render inline code', () => {

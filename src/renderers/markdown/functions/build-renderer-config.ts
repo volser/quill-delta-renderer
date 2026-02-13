@@ -103,11 +103,11 @@ function getListPrefix(
 }
 
 /**
- * Build a full `SimpleRendererConfig<string>` from the resolved markdown config.
+ * Build a full `SimpleRendererConfig<string>` for standard Markdown only.
  *
  * Defines all block handlers (paragraph, header, blockquote, code-block,
  * image, video, divider, formula, table pass-throughs) and mark handlers
- * (bold, italic, strike, code, link, underline as `<u>`, script as `<sub>`/`<sup>` + passthrough for unsupported marks).
+ * (bold, italic, strike, code, link). Underline and script are stripped.
  *
  * Node overrides handle `root`, `list`, and `code-block-container` — types
  * that need custom traversal logic not expressible as simple block handlers.
@@ -182,10 +182,9 @@ export function buildRendererConfig(cfg: ResolvedMarkdownConfig): SimpleRenderer
       code: (content) => `\`${content}\``,
       link: (content, value) => `[${content}](${String(value)})`,
 
-      // No standard MD syntax; render as HTML so it is preserved
-      underline: (content) => `<u>${content}</u>`,
-      script: (content, value) =>
-        value === 'super' ? `<sup>${content}</sup>` : `<sub>${content}</sub>`,
+      // No standard MD syntax — pass content through (strip)
+      underline: identity,
+      script: identity,
 
       // No native Markdown equivalents — pass content through
       color: identity,

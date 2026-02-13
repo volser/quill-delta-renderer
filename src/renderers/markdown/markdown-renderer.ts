@@ -4,14 +4,15 @@ import { resolveConfig } from './functions/resolve-config';
 import type { MarkdownConfig } from './types/markdown-config';
 
 /**
- * Renders an AST into Markdown text.
+ * Renders an AST into standard Markdown text.
  *
  * Supports all standard Quill block types (paragraphs, headers, blockquotes,
- * code blocks, lists, images, video, horizontal rules) and inline marks
- * (bold, italic, strike, code, link, underline as HTML `<u>`, script as `<sub>`/`<sup>`).
+ * code blocks, lists, images, video, horizontal rules) and inline marks that
+ * have native Markdown syntax: bold, italic, strike, code, link.
  *
- * Markdown has no concept of inline styling, so color, background, font,
- * and size are silently ignored; underline and script are rendered as HTML `<u>`, `<sub>`, `<sup>`.
+ * Formats with no standard Markdown equivalent (underline, script, color,
+ * background, font, size) are stripped. For HTML fallbacks (e.g. `<u>`,
+ * `<sub>`, `<sup>`) use {@link ExtendedMarkdownRenderer}.
  *
  * The renderer is designed for extensibility — use `withBlock()` and
  * `withMark()` to add handlers for custom embed types (e.g. mentions,
