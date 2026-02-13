@@ -76,6 +76,14 @@ const ast = parseQuillDelta(delta);
 const md = new MarkdownRenderer().render(ast);
 ```
 
+Three Markdown variants are available depending on how you need to handle non-standard formats (underline, script, color, etc.):
+
+| Renderer                 | Use case |
+| ------------------------ | -------- |
+| **MarkdownRenderer**     | Strict standard Markdown only (non-standard formats stripped). |
+| **HtmlMarkdownRenderer** | Standard Markdown + inline HTML for underline/script (`<u>`, `<sub>`, `<sup>`). See [HTML Markdown format](docs/markdown-html-format.md). |
+| **BracketMarkdownRenderer** | Standard Markdown + bracket tags (e.g. `[STYLE]...[/STYLE]`) for underline, script, color, background, font, size. See [Bracket Markdown format](docs/markdown-bracket-format.md). |
+
 ### React
 
 ```tsx
@@ -109,7 +117,7 @@ Import only what you need -- unused renderers are never bundled:
 | `quill-delta-renderer/core`               | `parseDelta`, `DeltaParser`, `BaseRenderer`, `SimpleRenderer`, `applyTransformers`, types |
 | `quill-delta-renderer/common`             | Transformers, sanitizers, shared utilities                                                |
 | `quill-delta-renderer/html`     | `SemanticHtmlRenderer`, `QuillHtmlRenderer`                                               |
-| `quill-delta-renderer/markdown` | `MarkdownRenderer`                                                                        |
+| `quill-delta-renderer/markdown` | `MarkdownRenderer`, `HtmlMarkdownRenderer`, `BracketMarkdownRenderer`                     |
 | `quill-delta-renderer/react`    | `ReactRenderer`                                                                           |
 
 ## Configuration
